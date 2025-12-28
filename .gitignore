@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Secrets - NEVER commit
+.secrets.json
+
+# Firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+
+# Test results
+test-results/
+playwright-report/
+
+# OS
+.DS_Store
+

@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "demo-fireminder",
+    "production": "fireminder-63450"
+  }
+}
