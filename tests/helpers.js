@@ -85,3 +85,48 @@ export async function completeReview(page) {
   await page.getByRole('button', { name: /review done/i }).click();
 }
 
+/**
+ * Time travel to a specific date
+ * @param {Page} page - Playwright page
+ * @param {string} date - Date in YYYY-MM-DD format
+ */
+export async function timeTravel(page, date) {
+  // Open sidebar
+  await page.locator('.icon-btn').filter({ hasText: '≡' }).click();
+  await page.locator('.sidebar').waitFor({ state: 'visible' });
+  
+  // Find and fill the time travel date input
+  await page.fill('input[type="date"]', date);
+  await page.press('input[type="date"]', 'Tab');
+  
+  // Wait for date to register
+  await page.waitForTimeout(300);
+  
+  // Close sidebar using X button (more reliable than overlay)
+  await page.locator('.sidebar-header .icon-btn').click();
+  await page.waitForTimeout(300);
+}
+
+/**
+ * Calculate a future date string
+ * @param {number} daysFromNow - Days to add
+ * @returns {string} Date in YYYY-MM-DD format
+ */
+export function futureDate(daysFromNow) {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow);
+  return date.toISOString().split('T')[0];
+}
+
+/**
+ * Clear time travel (back to today)
+ */
+export async function clearTimeTravel(page) {
+  const banner = page.locator('.time-travel-banner');
+  const hasBanner = await banner.isVisible().catch(() => false);
+  
+  if (hasBanner) {
+    await page.locator('.time-travel-banner button').click();
+    await page.waitForTimeout(300);
+  }
+}
