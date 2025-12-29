@@ -241,13 +241,17 @@ createApp({
       return currentCard.value.currentInterval || currentDeck.value?.startingInterval || 2;
     });
 
-    const shorterInterval = computed(() => getShorterInterval(currentInterval.value));
-    const longerInterval = computed(() => getLongerInterval(currentInterval.value));
+    // Default next interval advances one Fibonacci step
+    const defaultNextInterval = computed(() => getLongerInterval(currentInterval.value));
+    // Shorter = current interval (no advance)
+    const shorterInterval = computed(() => currentInterval.value);
+    // Longer = advance TWO steps (one beyond default)
+    const longerInterval = computed(() => getLongerInterval(defaultNextInterval.value));
 
     const nextInterval = computed(() => {
       if (selectedInterval.value === 'shorter') return shorterInterval.value;
       if (selectedInterval.value === 'longer') return longerInterval.value;
-      return getLongerInterval(currentInterval.value); // Default advances
+      return defaultNextInterval.value;
     });
     
     // Get reflections from current card's history
@@ -1034,7 +1038,10 @@ createApp({
                 :key="idx"
                 class="reflection-item"
               >
-                <div class="reflection-date">{{ formatHistoryDate(ref.date) }}:</div>
+                <div class="reflection-header">
+                  <span class="reflection-icon">💭</span>
+                  <span class="reflection-date">{{ formatHistoryDate(ref.date) }}:</span>
+                </div>
                 <div class="reflection-text">"{{ ref.reflection }}"</div>
               </div>
             </div>

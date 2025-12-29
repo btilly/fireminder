@@ -1173,8 +1173,7 @@ html, body {
 }
 
 .reflection-item {
-  padding-left: var(--space-md);
-  border-left: 2px solid var(--border);
+  /* Same styling as latest reflection */
 }
 
 /* Transitions */
