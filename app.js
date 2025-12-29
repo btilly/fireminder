@@ -154,8 +154,20 @@ createApp({
     const showAddCard = ref(false);
     const showNewDeck = ref(false);
     const showMenu = ref(false);
+    const showHistory = ref(false);
+    const showAllCards = ref(false);
+    const showCardDetail = ref(null); // card object or null
+    const showSettings = ref(false);
+    const settingsName = ref('');
+    const settingsInterval = ref(2);
+    const settingsLimit = ref('');
+    const showMoveToDeck = ref(false);
+    const moveToDeckTarget = ref(null);
     const showThemePicker = ref(false);
     const showDatePicker = ref(false);
+    const showSkipToast = ref(false);
+    const skippedCard = ref(null);
+    let skipToastTimeout = null;
     
     // Time travel - simulated date for testing
     const storedSimDate = localStorage.getItem('fireminder-simulated-date') || '';
@@ -205,7 +217,7 @@ createApp({
 
     const dueCards = computed(() => {
       const today = effectiveToday.value;
-      const deckCards = currentDeckCards.value.filter(c => !c.retired && !c.deleted);
+      const deckCards = currentDeckCards.value.filter(c => !c.retired && !c.deleted && !c.skippedToday);
       
       // Split into reviewed and never-reviewed
       const reviewed = deckCards.filter(c => c.lastReviewDate);
@@ -525,6 +537,31 @@ createApp({
       isEditing.value = false;
       editedContent.value = '';
     }
+    
+    async function saveEdit() {
+      if (!currentCard.value || !user.value || !isEditing.value) return;
+      if (editedContent.value === currentCard.value.content) {
+        // No changes, just close
+        cancelEditing();
+        return;
+      }
+      
+      try {
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', currentCard.value.id);
+        await setDoc(cardRef, { content: editedContent.value }, { merge: true });
+        
+        // Update local state
+        const idx = cards.value.findIndex(c => c.id === currentCard.value.id);
+        if (idx !== -1) {
+          cards.value[idx].content = editedContent.value;
+        }
+        
+        isEditing.value = false;
+        editedContent.value = '';
+      } catch (error) {
+        console.error('Error saving edit:', error);
+      }
+    }
 
     function selectDeck(deckId) {
       currentDeckId.value = deckId;
@@ -545,6 +582,203 @@ createApp({
     
     function clearSimulatedDate() {
       applySimulatedDate('');
+    }
+
+    // --- Helper functions for new panels ---
+    function formatHistoryDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    }
+    
+    function formatDueDate(dateStr) {
+      if (!dateStr) return 'Not scheduled';
+      const today = effectiveToday.value;
+      if (dateStr === today) return 'Today';
+      if (dateStr < today) return 'Overdue';
+      
+      const dueDate = new Date(dateStr);
+      const todayDate = new Date(today);
+      const diffDays = Math.ceil((dueDate - todayDate) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) return 'Tomorrow';
+      return `in ${diffDays} days`;
+    }
+    
+    function startEditingFromDetail() {
+      if (!showCardDetail.value) return;
+      // Set the current card to the detail card for editing
+      editedContent.value = showCardDetail.value.content;
+      isEditing.value = true;
+      showCardDetail.value = null;
+    }
+    
+    async function retireCardFromDetail() {
+      if (!showCardDetail.value || !user.value) return;
+      
+      try {
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', showCardDetail.value.id);
+        await setDoc(cardRef, { retired: true }, { merge: true });
+        
+        const idx = cards.value.findIndex(c => c.id === showCardDetail.value.id);
+        if (idx !== -1) {
+          cards.value[idx].retired = true;
+        }
+        showCardDetail.value = null;
+      } catch (error) {
+        console.error('Error retiring card:', error);
+      }
+    }
+    
+    async function deleteCardFromDetail() {
+      if (!showCardDetail.value || !user.value) return;
+      if (!confirm('Delete this card permanently?')) return;
+      
+      try {
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', showCardDetail.value.id);
+        await deleteDoc(cardRef);
+        
+        cards.value = cards.value.filter(c => c.id !== showCardDetail.value.id);
+        showCardDetail.value = null;
+      } catch (error) {
+        console.error('Error deleting card:', error);
+      }
+    }
+    
+    function openSettings() {
+      if (!currentDeck.value) return;
+      settingsName.value = currentDeck.value.name;
+      settingsInterval.value = currentDeck.value.startingInterval || 2;
+      settingsLimit.value = currentDeck.value.queueLimit || '';
+      showSettings.value = true;
+    }
+    
+    async function saveSettings() {
+      if (!currentDeck.value || !user.value) return;
+      if (!settingsName.value.trim()) return;
+      
+      try {
+        const deckRef = doc(db, 'users', user.value.uid, 'decks', currentDeck.value.id);
+        const updates = {
+          name: settingsName.value.trim(),
+          startingInterval: parseInt(settingsInterval.value) || 2,
+          queueLimit: settingsLimit.value ? parseInt(settingsLimit.value) : null
+        };
+        await setDoc(deckRef, updates, { merge: true });
+        
+        // Update local state
+        const idx = decks.value.findIndex(d => d.id === currentDeck.value.id);
+        if (idx !== -1) {
+          decks.value[idx] = { ...decks.value[idx], ...updates };
+        }
+        
+        showSettings.value = false;
+      } catch (error) {
+        console.error('Error saving settings:', error);
+      }
+    }
+    
+    async function deleteDeck() {
+      if (!currentDeck.value || !user.value) return;
+      
+      const cardsInDeck = cards.value.filter(c => c.deckId === currentDeck.value.id);
+      const confirmMsg = cardsInDeck.length > 0 
+        ? `Delete "${currentDeck.value.name}" and its ${cardsInDeck.length} cards?`
+        : `Delete "${currentDeck.value.name}"?`;
+      
+      if (!confirm(confirmMsg)) return;
+      
+      try {
+        // Delete all cards in deck
+        for (const card of cardsInDeck) {
+          const cardRef = doc(db, 'users', user.value.uid, 'cards', card.id);
+          await deleteDoc(cardRef);
+        }
+        
+        // Delete deck
+        const deckRef = doc(db, 'users', user.value.uid, 'decks', currentDeck.value.id);
+        await deleteDoc(deckRef);
+        
+        // Update local state
+        cards.value = cards.value.filter(c => c.deckId !== currentDeck.value.id);
+        decks.value = decks.value.filter(d => d.id !== currentDeck.value.id);
+        selectedDeckId.value = decks.value[0]?.id || null;
+        
+        showSettings.value = false;
+      } catch (error) {
+        console.error('Error deleting deck:', error);
+      }
+    }
+
+    function openMoveToDeck() {
+      moveToDeckTarget.value = null;
+      showMoveToDeck.value = true;
+    }
+    
+    function skipCard() {
+      if (!currentCard.value) return;
+      
+      // Store the skipped card for undo
+      skippedCard.value = { ...currentCard.value };
+      
+      // Move card to end of queue (by setting a temporary skip flag)
+      const idx = cards.value.findIndex(c => c.id === currentCard.value.id);
+      if (idx !== -1) {
+        cards.value[idx].skippedToday = true;
+      }
+      
+      showMenu.value = false;
+      showSkipToast.value = true;
+      
+      // Clear any existing timeout
+      if (skipToastTimeout) clearTimeout(skipToastTimeout);
+      
+      // Auto-dismiss after 3 seconds
+      skipToastTimeout = setTimeout(() => {
+        showSkipToast.value = false;
+        skippedCard.value = null;
+      }, 3000);
+    }
+    
+    function undoSkip() {
+      if (!skippedCard.value) return;
+      
+      // Clear the skip flag
+      const idx = cards.value.findIndex(c => c.id === skippedCard.value.id);
+      if (idx !== -1) {
+        cards.value[idx].skippedToday = false;
+      }
+      
+      // Clear timeout and toast
+      if (skipToastTimeout) clearTimeout(skipToastTimeout);
+      showSkipToast.value = false;
+      skippedCard.value = null;
+    }
+    
+    async function moveCard() {
+      const card = showCardDetail.value || currentCard.value;
+      if (!card || !user.value || !moveToDeckTarget.value) return;
+      if (moveToDeckTarget.value === card.deckId) return; // Same deck
+      
+      try {
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', card.id);
+        await setDoc(cardRef, { deckId: moveToDeckTarget.value }, { merge: true });
+        
+        // Update local state
+        const idx = cards.value.findIndex(c => c.id === card.id);
+        if (idx !== -1) {
+          cards.value[idx].deckId = moveToDeckTarget.value;
+        }
+        
+        showMoveToDeck.value = false;
+        showCardDetail.value = null;
+      } catch (error) {
+        console.error('Error moving card:', error);
+      }
     }
 
     function setTheme(theme) {
@@ -597,8 +831,26 @@ createApp({
       showAddCard,
       showNewDeck,
       showMenu,
+      showHistory,
+      showAllCards,
+      showCardDetail,
+      showSettings,
+      settingsName,
+      settingsInterval,
+      settingsLimit,
+      openSettings,
+      saveSettings,
+      deleteDeck,
+      showMoveToDeck,
+      moveToDeckTarget,
+      openMoveToDeck,
+      moveCard,
       showThemePicker,
       showDatePicker,
+      showSkipToast,
+      skippedCard,
+      skipCard,
+      undoSkip,
       simulatedDateRef,
       effectiveToday,
       isTimeTraveling,
@@ -635,6 +887,12 @@ createApp({
       deleteCard,
       startEditing,
       cancelEditing,
+      saveEdit,
+      startEditingFromDetail,
+      retireCardFromDetail,
+      deleteCardFromDetail,
+      formatHistoryDate,
+      formatDueDate,
       selectDeck,
       openAddCard,
       setTheme,
@@ -775,7 +1033,7 @@ createApp({
 
           <div class="interval-controls" v-if="!isEditing">
             <button 
-              class="interval-btn" 
+              class="interval-btn shorter" 
               :class="{ active: selectedInterval === 'shorter' }"
               @click="selectedInterval = selectedInterval === 'shorter' ? 'default' : 'shorter'"
             >
@@ -783,7 +1041,7 @@ createApp({
             </button>
             <span class="interval-current">{{ nextInterval }} days</span>
             <button 
-              class="interval-btn"
+              class="interval-btn longer"
               :class="{ active: selectedInterval === 'longer' }"
               @click="selectedInterval = selectedInterval === 'longer' ? 'default' : 'longer'"
             >
@@ -794,17 +1052,17 @@ createApp({
           <div class="action-row">
             <template v-if="isEditing">
               <button class="btn-secondary" @click="cancelEditing">Cancel</button>
-              <button class="btn-primary" @click="reviewCard">Save Edit</button>
+              <button class="btn-primary" @click="saveEdit">Save Edit</button>
             </template>
             <template v-else>
               <button class="btn-primary" @click="reviewCard">✓ Review Done</button>
               <div class="dropdown">
-                <button class="menu-btn" @click="showMenu = !showMenu">•••</button>
+                <button class="menu-btn" @click="showMenu = !showMenu">≡</button>
                 <div class="dropdown-menu" v-if="showMenu">
                   <button class="dropdown-item" @click="startEditing">Rephrase card</button>
-                  <button class="dropdown-item">View history</button>
-                  <button class="dropdown-item">Skip (review later)</button>
-                  <button class="dropdown-item">Move to deck...</button>
+                  <button class="dropdown-item" @click="showHistory = true; showMenu = false">View history</button>
+                  <button class="dropdown-item" @click="skipCard">Skip (review later)</button>
+                  <button class="dropdown-item" @click="openMoveToDeck(); showMenu = false">Move to deck...</button>
                   <div class="dropdown-divider"></div>
                   <button class="dropdown-item" @click="retireCard">Retire</button>
                   <button class="dropdown-item danger" @click="deleteCard">Delete...</button>
@@ -835,7 +1093,10 @@ createApp({
               <span class="stat-value">{{ deckStats.nextDueIn !== null ? 'in ' + deckStats.nextDueIn + ' days' : '—' }}</span>
             </div>
           </div>
-          <button class="btn-secondary">Show all cards</button>
+          <div class="empty-deck-actions">
+            <button class="btn-secondary" @click="showAllCards = true">Show all cards</button>
+            <button class="btn-secondary" @click="openSettings">⚙ Settings</button>
+          </div>
         </div>
       </main>
 
@@ -927,6 +1188,215 @@ createApp({
             >
           </div>
         </div>
+      </div>
+
+      <!-- History Panel -->
+      <div class="panel" v-if="showHistory && currentCard">
+        <div class="panel-header">
+          <button class="icon-btn" @click="showHistory = false">✕</button>
+          <span class="panel-title">History</span>
+        </div>
+        <div class="panel-body">
+          <!-- Current Version -->
+          <div class="history-section">
+            <div class="history-label">CURRENT</div>
+            <div class="history-card-content">{{ currentCard.content }}</div>
+          </div>
+          
+          <!-- History Entries -->
+          <div 
+            v-for="(entry, index) in (currentCard.history || []).slice().reverse()" 
+            :key="index"
+            class="history-section"
+          >
+            <div class="history-date">{{ formatHistoryDate(entry.date) }}</div>
+            <div class="history-card-content" v-if="entry.previousContent">
+              {{ entry.previousContent }}
+            </div>
+            <div class="history-reflection" v-if="entry.reflection">
+              <span class="history-reflection-label">Reflection:</span>
+              {{ entry.reflection }}
+            </div>
+            <div class="history-interval">
+              Interval: {{ entry.interval }} days
+            </div>
+          </div>
+          
+          <!-- No history yet -->
+          <div v-if="!currentCard.history || currentCard.history.length === 0" class="history-empty">
+            No history yet. This card hasn't been reviewed.
+          </div>
+        </div>
+      </div>
+
+      <!-- All Cards Panel -->
+      <div class="panel" v-if="showAllCards">
+        <div class="panel-header">
+          <button class="icon-btn" @click="showAllCards = false">✕</button>
+          <span class="panel-title">All Cards ({{ currentDeck?.name }})</span>
+        </div>
+        <div class="panel-body">
+          <!-- Active Cards -->
+          <div class="cards-section">
+            <div class="cards-section-title">ACTIVE ({{ deckStats.active }})</div>
+            <div 
+              v-for="card in currentDeckCards.filter(c => !c.retired && !c.deleted)"
+              :key="card.id"
+              class="card-list-item"
+              @click="showCardDetail = card; showAllCards = false"
+            >
+              <div class="card-list-content">{{ card.content }}</div>
+              <div class="card-list-due">Due: {{ formatDueDate(card.nextDueDate) }}</div>
+            </div>
+          </div>
+          
+          <!-- Retired Cards -->
+          <div class="cards-section" v-if="currentDeckCards.filter(c => c.retired).length > 0">
+            <div class="cards-section-title">RETIRED ({{ deckStats.retired }})</div>
+            <div 
+              v-for="card in currentDeckCards.filter(c => c.retired)"
+              :key="card.id"
+              class="card-list-item retired"
+              @click="showCardDetail = card; showAllCards = false"
+            >
+              <div class="card-list-content">{{ card.content }}</div>
+              <div class="card-list-due">Retired</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Detail Panel -->
+      <div class="panel" v-if="showCardDetail">
+        <div class="panel-header">
+          <button class="icon-btn" @click="showCardDetail = null">✕</button>
+          <span class="panel-title">Card Detail</span>
+          <button class="panel-action" @click="startEditingFromDetail">Edit</button>
+        </div>
+        <div class="panel-body">
+          <div class="detail-content">{{ showCardDetail.content }}</div>
+          
+          <div class="detail-meta">
+            <div class="detail-row">
+              <span class="detail-label">Deck:</span>
+              <span>{{ currentDeck?.name }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Created:</span>
+              <span>{{ formatHistoryDate(showCardDetail.createdAt) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Last reviewed:</span>
+              <span>{{ showCardDetail.lastReviewDate ? formatHistoryDate(showCardDetail.lastReviewDate) : 'Never' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Current interval:</span>
+              <span>{{ showCardDetail.currentInterval }} days</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Next due:</span>
+              <span>{{ formatDueDate(showCardDetail.nextDueDate) }}</span>
+            </div>
+          </div>
+          
+          <div class="detail-actions">
+            <button class="btn-secondary" @click="showHistory = true; showCardDetail = null">View History</button>
+            <button class="btn-secondary" @click="showMoveToDeck = true">Move to Deck</button>
+          </div>
+          
+          <div class="detail-danger">
+            <button class="btn-danger-outline" @click="retireCardFromDetail">Retire</button>
+            <button class="btn-danger" @click="deleteCardFromDetail">Delete</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Settings Panel -->
+      <div class="panel" v-if="showSettings && currentDeck">
+        <div class="panel-header">
+          <button class="icon-btn" @click="showSettings = false">✕</button>
+          <span class="panel-title">Settings</span>
+          <button class="panel-action" @click="saveSettings">Done</button>
+        </div>
+        <div class="panel-body">
+          <div class="settings-deck-title">DECK: {{ currentDeck.name }}</div>
+          
+          <div class="form-group">
+            <label class="form-label">Name:</label>
+            <input 
+              type="text" 
+              class="form-input"
+              v-model="settingsName"
+              placeholder="Deck name"
+            />
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Starting interval:</label>
+            <div class="interval-input-row">
+              <input 
+                type="number" 
+                class="form-input interval-number"
+                v-model="settingsInterval"
+                min="1"
+              />
+              <span class="interval-unit">days</span>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Queue limit:</label>
+            <input 
+              type="number" 
+              class="form-input"
+              v-model="settingsLimit"
+              placeholder="Unlimited"
+              min="1"
+            />
+          </div>
+          
+          <div class="settings-danger">
+            <button class="btn-danger" @click="deleteDeck">Delete Deck</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Move to Deck Modal -->
+      <div class="modal-overlay" v-if="showMoveToDeck" @click.self="showMoveToDeck = false">
+        <div class="modal">
+          <div class="modal-header">Move Card</div>
+          <div class="modal-body">
+            <div class="modal-label">Move to:</div>
+            <div class="deck-options">
+              <label 
+                v-for="deck in decks" 
+                :key="deck.id"
+                class="deck-option"
+                :class="{ current: deck.id === (showCardDetail?.deckId || currentCard?.deckId) }"
+              >
+                <input 
+                  type="radio" 
+                  name="moveToDeck" 
+                  :value="deck.id"
+                  v-model="moveToDeckTarget"
+                  :disabled="deck.id === (showCardDetail?.deckId || currentCard?.deckId)"
+                />
+                <span>{{ deck.name }}</span>
+                <span class="current-badge" v-if="deck.id === (showCardDetail?.deckId || currentCard?.deckId)">(current)</span>
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-secondary" @click="showMoveToDeck = false">Cancel</button>
+            <button class="btn-primary" @click="moveCard" :disabled="!moveToDeckTarget">Move</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Skip Toast -->
+      <div class="skip-toast" v-if="showSkipToast">
+        <span>Skipped. Will show again later today.</span>
+        <button class="toast-undo" @click="undoSkip">Undo</button>
       </div>
     </div>
   `
