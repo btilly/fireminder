@@ -47,8 +47,6 @@ test.describe('Queue Priority', () => {
     // Should show 1 more
     await expect(page.locator('.queue-status')).toContainText('1 more today');
   });
-});
-
 
   test('card created today is due after starting interval', async ({ page }) => {
     await page.goto('/');
@@ -63,26 +61,12 @@ test.describe('Queue Priority', () => {
     // Verify it's NOT due today
     await expect(page.getByText(/all caught up/i)).toBeVisible();
     
-    // Time travel exactly 2 days forward (Dec 28 → Dec 30)
+    // Time travel exactly 2 days forward
     await timeTravel(page, futureDate(2));
     
-    // Card SHOULD be due now - this is the bug!
+    // Card should now be due
     await expect(page.locator('.card-content')).toContainText('Should be due in 2 days');
   });
 
-  test('time travel forward shows card due after interval', async ({ page }) => {
-    await page.goto('/');
-    await waitForDemoLogin(page);
-    
-    // Create deck with 2-day interval
-    await createDeck(page, { name: uniqueName('TimeTravelDue'), interval: 2 });
-    
-    // Create card (today)
-    await createCard(page, 'Card for time travel test');
-    
-    // Time travel forward by 2 days (matches interval)
-    await timeTravel(page, futureDate(2));
-    
-    // Should show the card
-    await expect(page.locator('.card-content')).toContainText('Card for time travel test');
-  });
+  // REMOVED: "time travel forward shows card due after interval" - duplicate of test above
+});

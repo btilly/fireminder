@@ -81,22 +81,6 @@ test.describe('Time Travel', () => {
     await expect(page.locator('.panel-body')).toContainText(/no cards|ACTIVE \(0\)/i);
   });
 
-  test('time travel affects card scheduling', async ({ page }) => {
-    // This is more of an integration test - covered in happy-path
-    // Here we just verify the UI mechanics work
-    
-    // Open sidebar
-    await page.locator('.icon-btn').filter({ hasText: '≡' }).click();
-    
-    // Time travel input should exist
-    await expect(page.locator('input[type="date"]')).toBeVisible();
-    
-    // Set a date
-    await page.fill('input[type="date"]', '2030-01-01');
-    await page.press('input[type="date"]', 'Tab');
-    
-    // Should work with any date
-    await expect(page.locator('.time-travel-banner')).toContainText('2030-01-01');
-  });
+  // REMOVED: "time travel affects card scheduling" - redundant with queue-priority tests
 });
 
