@@ -1340,11 +1340,11 @@ createApp({
             >
           </div>
           <div class="form-group">
-            <label class="form-label">Queue limit (blank = unlimited)</label>
+            <label class="form-label">Max cards/day (blank = no limit)</label>
             <input 
               type="number" 
               class="form-input" 
-              placeholder="Unlimited"
+              placeholder="No limit"
               min="1"
               v-model.number="newDeckLimit"
             >
@@ -1521,12 +1521,12 @@ createApp({
           </div>
           
           <div class="form-group">
-            <label class="form-label">Queue limit:</label>
+            <label class="form-label">Max cards/day:</label>
             <input 
               type="number" 
               class="form-input"
               v-model="settingsLimit"
-              placeholder="Unlimited"
+              placeholder="No limit"
               min="1"
             />
           </div>
