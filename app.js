@@ -1,40 +1,27 @@
 // Fireminder - Main App
+
+// ===== IMPORTS =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
 import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  getDoc,
-  getDocs,
-  deleteDoc,
-  collection,
-  query,
-  where,
-  connectFirestoreEmulator 
+  getFirestore, doc, setDoc, getDoc, getDocs, deleteDoc,
+  collection, query, where, connectFirestoreEmulator 
 } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 import { 
-  getAuth, 
-  signInWithPopup, 
-  signInAnonymously,
-  signOut as firebaseSignOut,
-  GoogleAuthProvider, 
-  onAuthStateChanged,
-  connectAuthEmulator 
+  getAuth, signInWithPopup, signInAnonymously, signOut as firebaseSignOut,
+  GoogleAuthProvider, onAuthStateChanged, connectAuthEmulator 
 } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+import {
+  FIBONACCI, getFibIndex, getFibValue, getShorterInterval, getLongerInterval,
+  parseLocalDate, addDays, daysBetween, formatDate,
+  THEMES, getStoredTheme, applyTheme, formatHistoryDate
+} from './utils.js';
 
-// --- Environment detection ---
+// ===== FIREBASE SETUP =====
 const USE_EMULATOR = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// --- Firebase config ---
 const firebaseConfig = USE_EMULATOR 
-  ? {
-      // Demo project for local emulator
-      apiKey: "demo-key",
-      authDomain: "demo-fireminder.firebaseapp.com",
-      projectId: "demo-fireminder",
-    }
+  ? { apiKey: "demo-key", authDomain: "demo-fireminder.firebaseapp.com", projectId: "demo-fireminder" }
   : {
-      // Production Firebase project
       apiKey: "AIzaSyCX-vVV222auMSpocxd99IdAOYiVgvD2kY",
       authDomain: "fireminder-63450.firebaseapp.com",
       projectId: "fireminder-63450",
@@ -48,11 +35,8 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-provider.setCustomParameters({
-  prompt: 'select_account'
-});
+provider.setCustomParameters({ prompt: 'select_account' });
 
-// Connect to emulators in development
 if (USE_EMULATOR) {
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectAuthEmulator(auth, 'http://127.0.0.1:9099');
@@ -61,142 +45,76 @@ if (USE_EMULATOR) {
   console.log('🔥 Connected to Firebase Production');
 }
 
-// --- Fibonacci sequence helpers ---
-const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377];
-
-function getFibIndex(value) {
-  const idx = FIBONACCI.indexOf(value);
-  return idx === -1 ? 1 : idx; // Default to index 1 (value 2)
-}
-
-function getFibValue(index) {
-  if (index < 0) return FIBONACCI[0];
-  if (index >= FIBONACCI.length) return FIBONACCI[FIBONACCI.length - 1];
-  return FIBONACCI[index];
-}
-
-function getShorterInterval(current) {
-  const idx = getFibIndex(current);
-  return getFibValue(idx - 1);
-}
-
-function getLongerInterval(current) {
-  const idx = getFibIndex(current);
-  return getFibValue(idx + 1);
-}
-
-// --- Date helpers ---
-// IMPORTANT: All dates are LOCAL dates (user's timezone). No UTC conversion.
-// We store dates as "YYYY-MM-DD" strings and compare them lexicographically.
-
-/**
- * Parse a "YYYY-MM-DD" string as a LOCAL date (not UTC).
- * new Date("2025-12-30") parses as midnight UTC which causes off-by-one bugs.
- * This function creates midnight LOCAL time.
- */
-function parseLocalDate(dateStr) {
-  if (dateStr instanceof Date) return dateStr;
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day); // month is 0-indexed
-}
-
-function addDays(date, days) {
-  const d = date instanceof Date ? date : parseLocalDate(date);
-  const result = new Date(d);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function daysBetween(date1, date2) {
-  const d1 = parseLocalDate(date1);
-  const d2 = parseLocalDate(date2);
-  const diffTime = d2 - d1;
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-}
-
-/**
- * Format a date as "YYYY-MM-DD" using LOCAL time (not UTC).
- */
-function formatDate(date) {
-  const d = date instanceof Date ? date : parseLocalDate(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-// --- Vue App ---
-const { createApp, ref, computed, watch, onMounted } = Vue;
-
-// --- Theme management ---
-const THEMES = ['light', 'dark', 'ocean', 'forest', 'rose', 'ember'];
-
-function getStoredTheme() {
-  return localStorage.getItem('fireminder-theme') || 'light';
-}
-
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('fireminder-theme', theme);
-}
-
 // Apply saved theme immediately
 applyTheme(getStoredTheme());
 
+// ===== VUE APP =====
+const { createApp, ref, computed, watch, onMounted } = Vue;
+
 createApp({
   setup() {
-    // --- State ---
+    // ========== STATE ==========
+    
+    // --- Core Data ---
     const user = ref(null);
     const decks = ref([]);
     const cards = ref([]);
     const currentDeckId = ref(null);
+    
+    // --- UI Panels (boolean flags) ---
     const showSidebar = ref(false);
     const showAddCard = ref(false);
     const showNewDeck = ref(false);
     const showMenu = ref(false);
     const showHistory = ref(false);
     const showAllCards = ref(false);
-    const showCardDetail = ref(null); // card object or null
-    const isEditingDetail = ref(false);
-    const detailEditContent = ref('');
     const showSettings = ref(false);
-    const settingsName = ref('');
-    const settingsInterval = ref(2);
-    const settingsLimit = ref('');
     const showMoveToDeck = ref(false);
-    const moveToDeckTarget = ref(null);
     const showThemePicker = ref(false);
     const showDatePicker = ref(false);
+    const showResetConfirm = ref(false);
+    
+    // --- UI State (non-boolean) ---
+    const showCardDetail = ref(null);       // Card object or null
     const showSkipToast = ref(false);
     const skippedCard = ref(null);
     let skipToastTimeout = null;
     const showAllReflections = ref(false);
-    
-    // Time travel - simulated date for testing
-    const storedSimDate = localStorage.getItem('fireminder-simulated-date') || '';
-    const simulatedDateRef = ref(storedSimDate);
-    // Track when time travel started (real timestamp) to enable discarding changes
-    const storedTimeTravelStart = localStorage.getItem('fireminder-timetravel-started') || '';
-    const timeTravelStartedAt = ref(storedTimeTravelStart);
-    const showResetConfirm = ref(false);
-    if (storedSimDate) {
-      console.log('🕐 Restored simulated date:', storedSimDate);
-    }
-    
-    const isEditing = ref(false);
-    const selectedInterval = ref('default'); // 'shorter', 'default', 'longer'
+    const moveToDeckTarget = ref(null);
     const currentTheme = ref(getStoredTheme());
     
-    // Form state
-    const newCardContent = ref('');
-    const newCardReminder = ref(''); // Optional reminder for scheduled cards
-    const newCardScheduleDate = ref(''); // Optional: when card should first appear
-    const newCardDeckId = ref(null);
-    const newDeckName = ref('');
-    const newDeckInterval = ref(2);
-    const newDeckLimit = ref(null); // null = unlimited
+    // --- Card Detail Editing ---
+    const isEditingDetail = ref(false);
+    const detailEditContent = ref('');
+    
+    // --- Settings Form ---
+    const settingsName = ref('');
+    const settingsInterval = ref(2);
+    const settingsLimit = ref('');
+    
+    // --- Review State ---
+    const isEditing = ref(false);
+    const selectedInterval = ref('default'); // 'shorter', 'default', 'longer'
     const reflectionText = ref('');
     const editedContent = ref('');
+    
+    // --- New Card Form ---
+    const newCardContent = ref('');
+    const newCardReminder = ref('');         // Optional reminder for scheduled cards
+    const newCardScheduleDate = ref('');     // Optional: when card should first appear
+    const newCardDeckId = ref(null);
+    
+    // --- New Deck Form ---
+    const newDeckName = ref('');
+    const newDeckInterval = ref(2);
+    const newDeckLimit = ref(null);          // null = unlimited
+    
+    // --- Time Travel (Developer) ---
+    const storedSimDate = localStorage.getItem('fireminder-simulated-date') || '';
+    const simulatedDateRef = ref(storedSimDate);
+    const storedTimeTravelStart = localStorage.getItem('fireminder-timetravel-started') || '';
+    const timeTravelStartedAt = ref(storedTimeTravelStart);
+    if (storedSimDate) console.log('🕐 Restored simulated date:', storedSimDate);
 
     // --- Computed ---
     const currentDeck = computed(() => {
@@ -536,33 +454,40 @@ createApp({
       }
     }
 
-    async function retireCard() {
-      if (!currentCard.value || !user.value) return;
+    // Unified card operations (work from review or detail view)
+    async function retireCard(card = null) {
+      const targetCard = card || showCardDetail.value || currentCard.value;
+      if (!targetCard || !user.value) return;
       
       try {
-        const cardRef = doc(db, 'users', user.value.uid, 'cards', currentCard.value.id);
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', targetCard.id);
         await setDoc(cardRef, { retired: true }, { merge: true });
         
-        const idx = cards.value.findIndex(c => c.id === currentCard.value.id);
+        const idx = cards.value.findIndex(c => c.id === targetCard.id);
         if (idx !== -1) {
           cards.value[idx].retired = true;
         }
+        // Close whichever panel we're in
         showMenu.value = false;
+        showCardDetail.value = null;
       } catch (error) {
         console.error('Error retiring card:', error);
       }
     }
 
-    async function deleteCard() {
-      if (!currentCard.value || !user.value) return;
+    async function deleteCard(card = null) {
+      const targetCard = card || showCardDetail.value || currentCard.value;
+      if (!targetCard || !user.value) return;
       if (!confirm('Delete this card permanently?')) return;
       
       try {
-        const cardRef = doc(db, 'users', user.value.uid, 'cards', currentCard.value.id);
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', targetCard.id);
         await deleteDoc(cardRef);
         
-        cards.value = cards.value.filter(c => c.id !== currentCard.value.id);
+        cards.value = cards.value.filter(c => c.id !== targetCard.id);
+        // Close whichever panel we're in
         showMenu.value = false;
+        showCardDetail.value = null;
       } catch (error) {
         console.error('Error deleting card:', error);
       }
@@ -682,15 +607,7 @@ createApp({
     }
 
     // --- Helper functions for new panels ---
-    function formatHistoryDate(dateStr) {
-      if (!dateStr) return '';
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      });
-    }
+    // formatHistoryDate is imported from utils.js
     
     function formatDueDate(dateStr) {
       if (!dateStr) return 'Not scheduled';
@@ -750,37 +667,7 @@ createApp({
       }
     }
     
-    async function retireCardFromDetail() {
-      if (!showCardDetail.value || !user.value) return;
-      
-      try {
-        const cardRef = doc(db, 'users', user.value.uid, 'cards', showCardDetail.value.id);
-        await setDoc(cardRef, { retired: true }, { merge: true });
-        
-        const idx = cards.value.findIndex(c => c.id === showCardDetail.value.id);
-        if (idx !== -1) {
-          cards.value[idx].retired = true;
-        }
-        showCardDetail.value = null;
-      } catch (error) {
-        console.error('Error retiring card:', error);
-      }
-    }
-    
-    async function deleteCardFromDetail() {
-      if (!showCardDetail.value || !user.value) return;
-      if (!confirm('Delete this card permanently?')) return;
-      
-      try {
-        const cardRef = doc(db, 'users', user.value.uid, 'cards', showCardDetail.value.id);
-        await deleteDoc(cardRef);
-        
-        cards.value = cards.value.filter(c => c.id !== showCardDetail.value.id);
-        showCardDetail.value = null;
-      } catch (error) {
-        console.error('Error deleting card:', error);
-      }
-    }
+    // retireCardFromDetail and deleteCardFromDetail removed - use retireCard() and deleteCard()
     
     function openAllCards() {
       showAllCards.value = true;
@@ -1165,8 +1052,6 @@ createApp({
       cancelEditing,
       saveEdit,
       startEditingFromDetail,
-      retireCardFromDetail,
-      deleteCardFromDetail,
       formatHistoryDate,
       formatDueDate,
       selectDeck,
@@ -1679,8 +1564,8 @@ createApp({
           </div>
           
           <div class="detail-danger">
-            <button class="btn-danger-outline" @click="retireCardFromDetail">Retire</button>
-            <button class="btn-danger" @click="deleteCardFromDetail">Delete</button>
+            <button class="btn-danger-outline" @click="retireCard()">Retire</button>
+            <button class="btn-danger" @click="deleteCard()">Delete</button>
           </div>
         </div>
       </div>
