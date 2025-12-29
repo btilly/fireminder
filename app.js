@@ -173,6 +173,10 @@ createApp({
     // Time travel - simulated date for testing
     const storedSimDate = localStorage.getItem('fireminder-simulated-date') || '';
     const simulatedDateRef = ref(storedSimDate);
+    // Track when time travel started (real timestamp) to enable discarding changes
+    const storedTimeTravelStart = localStorage.getItem('fireminder-timetravel-started') || '';
+    const timeTravelStartedAt = ref(storedTimeTravelStart);
+    const showResetConfirm = ref(false);
     if (storedSimDate) {
       console.log('🕐 Restored simulated date:', storedSimDate);
     }
@@ -380,6 +384,7 @@ createApp({
         startingInterval: newDeckInterval.value,
         queueLimit: queueLimit,
         createdAt: formatDate(getToday()),
+        createdAtReal: new Date().toISOString(), // Real timestamp for time travel discard
       };
       
       // Close panel immediately for better UX
@@ -423,6 +428,7 @@ createApp({
         content: newCardContent.value.trim(),
         currentInterval: startingInterval,
         createdAt: formatDate(getToday()),
+        createdAtReal: new Date().toISOString(), // Real timestamp for time travel discard
         lastReviewDate: null,
         nextDueDate: formatDate(firstDueDate), // First review after starting interval
         retired: false,
@@ -588,6 +594,13 @@ createApp({
     }
 
     function applySimulatedDate(dateStr) {
+      // If starting time travel (from no simulation to a date), record real timestamp
+      if (dateStr && !simulatedDateRef.value) {
+        const startTime = new Date().toISOString();
+        timeTravelStartedAt.value = startTime;
+        localStorage.setItem('fireminder-timetravel-started', startTime);
+        console.log('🕐 Time travel started at:', startTime);
+      }
       simulatedDateRef.value = dateStr || '';
       localStorage.setItem('fireminder-simulated-date', dateStr || '');
       console.log('🕐 Simulated date:', dateStr || 'REAL TIME');
@@ -595,7 +608,55 @@ createApp({
     }
     
     function clearSimulatedDate() {
+      // Just clear the simulation, keep any changes made
+      timeTravelStartedAt.value = '';
+      localStorage.removeItem('fireminder-timetravel-started');
       applySimulatedDate('');
+    }
+    
+    function promptResetTimeTravel() {
+      // Show confirmation modal with options
+      showResetConfirm.value = true;
+    }
+    
+    async function resetTimeTravelAndDiscard() {
+      if (!timeTravelStartedAt.value || !user.value) {
+        clearSimulatedDate();
+        showResetConfirm.value = false;
+        return;
+      }
+      
+      const startTime = timeTravelStartedAt.value;
+      console.log('🕐 Discarding changes made after:', startTime);
+      
+      // Delete cards created after time travel started (use real timestamp)
+      const cardsToDelete = cards.value.filter(c => (c.createdAtReal || c.createdAt) > startTime);
+      console.log('🕐 Cards to delete:', cardsToDelete.length);
+      
+      for (const card of cardsToDelete) {
+        try {
+          await deleteDoc(doc(db, 'users', user.value.uid, 'cards', card.id));
+        } catch (err) {
+          console.error('Failed to delete card:', card.id, err);
+        }
+      }
+      
+      // Delete decks created after time travel started (use real timestamp)
+      const decksToDelete = decks.value.filter(d => (d.createdAtReal || d.createdAt) > startTime);
+      console.log('🕐 Decks to delete:', decksToDelete.length);
+      
+      for (const deck of decksToDelete) {
+        try {
+          await deleteDoc(doc(db, 'users', user.value.uid, 'decks', deck.id));
+        } catch (err) {
+          console.error('Failed to delete deck:', deck.id, err);
+        }
+      }
+      
+      // Clear time travel state
+      clearSimulatedDate();
+      showResetConfirm.value = false;
+      console.log('🕐 Time travel reset complete');
     }
 
     // --- Helper functions for new panels ---
@@ -920,6 +981,9 @@ createApp({
       setTheme,
       applySimulatedDate,
       clearSimulatedDate,
+      showResetConfirm,
+      promptResetTimeTravel,
+      resetTimeTravelAndDiscard,
     };
   },
 
@@ -945,7 +1009,7 @@ createApp({
             <div class="sidebar-date-value">{{ effectiveToday }}</div>
             <div v-if="isTimeTraveling" class="sidebar-date-simulated">
               🕐 Simulated
-              <button class="btn-link" @click="clearSimulatedDate">Reset</button>
+              <button class="btn-link" @click="promptResetTimeTravel">Reset</button>
             </div>
           </div>
           
@@ -1021,7 +1085,7 @@ createApp({
       <!-- Time Travel Banner -->
       <div v-if="isTimeTraveling" class="time-travel-banner">
         🕐 Simulating: {{ effectiveToday }}
-        <button class="btn-reset" @click="clearSimulatedDate">← Back to today</button>
+        <button class="btn-reset" @click="promptResetTimeTravel">← Back to today</button>
       </div>
 
       <!-- Main Content -->
@@ -1442,6 +1506,27 @@ createApp({
           <div class="modal-footer">
             <button class="btn-secondary" @click="showMoveToDeck = false">Cancel</button>
             <button class="btn-primary" @click="moveCard" :disabled="!moveToDeckTarget">Move</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Time Travel Reset Confirmation Modal -->
+      <div class="modal-overlay" v-if="showResetConfirm" @click.self="showResetConfirm = false">
+        <div class="modal">
+          <div class="modal-header">Return to Today</div>
+          <div class="modal-body">
+            <p style="margin-bottom: 1rem;">You've been time traveling. What would you like to do with any cards or decks created during this session?</p>
+          </div>
+          <div class="modal-footer" style="flex-direction: column; gap: 0.5rem;">
+            <button class="btn-primary" @click="clearSimulatedDate(); showResetConfirm = false" style="width: 100%;">
+              Keep Changes
+            </button>
+            <button class="btn-danger" @click="resetTimeTravelAndDiscard" style="width: 100%;">
+              Discard Changes
+            </button>
+            <button class="btn-secondary" @click="showResetConfirm = false" style="width: 100%;">
+              Cancel
+            </button>
           </div>
         </div>
       </div>
