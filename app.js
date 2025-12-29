@@ -168,6 +168,7 @@ createApp({
     const showSkipToast = ref(false);
     const skippedCard = ref(null);
     let skipToastTimeout = null;
+    const showAllReflections = ref(false);
     
     // Time travel - simulated date for testing
     const storedSimDate = localStorage.getItem('fireminder-simulated-date') || '';
@@ -262,13 +263,25 @@ createApp({
       return currentCard.value.currentInterval || currentDeck.value?.startingInterval || 2;
     });
 
-    const shorterInterval = computed(() => getShorterInterval(currentInterval.value));
-    const longerInterval = computed(() => getLongerInterval(currentInterval.value));
+    // Default next interval advances one Fibonacci step
+    const defaultNextInterval = computed(() => getLongerInterval(currentInterval.value));
+    // Shorter = current interval (no advance)
+    const shorterInterval = computed(() => currentInterval.value);
+    // Longer = advance TWO steps (one beyond default)
+    const longerInterval = computed(() => getLongerInterval(defaultNextInterval.value));
 
     const nextInterval = computed(() => {
       if (selectedInterval.value === 'shorter') return shorterInterval.value;
       if (selectedInterval.value === 'longer') return longerInterval.value;
-      return getLongerInterval(currentInterval.value); // Default advances
+      return defaultNextInterval.value;
+    });
+    
+    // Get reflections from current card's history
+    const cardReflections = computed(() => {
+      if (!currentCard.value?.history) return [];
+      return currentCard.value.history
+        .filter(h => h.reflection)
+        .sort((a, b) => new Date(b.date) - new Date(a.date)); // newest first
     });
 
     const deckStats = computed(() => {
@@ -488,6 +501,7 @@ createApp({
         selectedInterval.value = 'default';
         isEditing.value = false;
         editedContent.value = '';
+        showAllReflections.value = false;
         showMenu.value = false;
       } catch (error) {
         console.error('Error reviewing card:', error);
@@ -851,6 +865,8 @@ createApp({
       skippedCard,
       skipCard,
       undoSkip,
+      showAllReflections,
+      cardReflections,
       simulatedDateRef,
       effectiveToday,
       isTimeTraveling,
@@ -1022,6 +1038,37 @@ createApp({
               ></textarea>
             </div>
             <div v-else class="card-content">{{ currentCard.content }}</div>
+          </div>
+          
+          <!-- Past Reflections (inline display) -->
+          <div class="past-reflections" v-if="!isEditing && cardReflections.length > 0">
+            <div class="reflection-latest">
+              <div class="reflection-header">
+                <span class="reflection-icon">💭</span>
+                <span class="reflection-date">{{ formatHistoryDate(cardReflections[0].date) }}:</span>
+              </div>
+              <div class="reflection-text">"{{ cardReflections[0].reflection }}"</div>
+            </div>
+            <button 
+              v-if="cardReflections.length > 1"
+              class="reflections-toggle"
+              @click="showAllReflections = !showAllReflections"
+            >
+              {{ showAllReflections ? '▴ Hide' : '▾ ' + (cardReflections.length - 1) + ' more reflection' + (cardReflections.length > 2 ? 's' : '') }}
+            </button>
+            <div class="reflections-expanded" v-if="showAllReflections">
+              <div 
+                v-for="(ref, idx) in cardReflections.slice(1)" 
+                :key="idx"
+                class="reflection-item"
+              >
+                <div class="reflection-header">
+                  <span class="reflection-icon">💭</span>
+                  <span class="reflection-date">{{ formatHistoryDate(ref.date) }}:</span>
+                </div>
+                <div class="reflection-text">"{{ ref.reflection }}"</div>
+              </div>
+            </div>
           </div>
 
           <textarea 
