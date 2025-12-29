@@ -183,6 +183,35 @@ Skip and undo functionality.
 
 ---
 
+## Latest Test Run (marvin/new-screens branch)
+
+**44 passed, 5 failed** (Dec 29, 2025)
+
+### Passing Tests
+- `happy-path.spec.js` - All pass ✓
+- `card-actions.spec.js` - All pass ✓
+- `smoke.spec.js` - All pass ✓
+- `time-travel.spec.js` - All pass ✓
+- `settings-panel.spec.js` - All pass ✓
+- `move-to-deck.spec.js` - All pass ✓
+- `skip-card.spec.js` - All pass ✓
+- `view-history.spec.js` - 2/4 pass (2 flaky)
+
+### Flaky Tests (timing issues - for Trevor to investigate)
+| Test File | Test | Issue |
+|-----------|------|-------|
+| `all-cards-list.spec.js` | show all cards button opens panel | Panel not opening after click (timing?) |
+| `all-cards-list.spec.js` | empty deck shows active count of 0 | Same issue |
+| `all-cards-list.spec.js` | card list shows due date | Same issue |
+| `all-cards-list.spec.js` | clicking card opens detail view | Same issue |
+
+### Known Bug (expected failure)
+| Test | Description |
+|------|-------------|
+| `queue-priority.spec.js:73` | Timezone date calculation bug - cards created on Dec 28 with 2-day interval don't appear on Dec 30 |
+
+---
+
 ## Not Yet Implemented
 
 - Cross-deck "All" view
