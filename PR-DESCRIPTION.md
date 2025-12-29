@@ -18,6 +18,9 @@ Implements new UI screens and fixes demo feedback bugs.
 - **View History panel** - Full takeover, shows CURRENT content + past reviews with reflections
 - **All Cards List** - Shows active/retired cards with due dates
 - **Card Detail View** - Tap card from list to see details, interval, history
+- **Settings Panel** - Edit deck name, starting interval, queue limit, delete deck
+- **Move to Deck modal** - Radio button list, current deck disabled, moves card
+- **Skip Toast** - "Skipped. Will show again later today." with Undo, auto-dismisses after 3s
 
 ### New Helper Functions
 - `formatDateLong()` - "Dec 28, 2025"
@@ -34,6 +37,9 @@ New test files documented in `TESTS.md`:
 | `all-cards-list.spec.js` | Show all button, active/retired lists, tap to detail, due dates, empty state |
 | `card-detail.spec.js` | Full content, interval, due date, history, edit/retire/delete from detail |
 | `interval-controls.spec.js` | Default styling, blue Shorter, orange Longer, toggle behavior |
+| `settings-panel.spec.js` | Open, edit name/interval/limit, delete deck, cancel |
+| `move-to-deck.spec.js` | Open from menu/detail, current disabled, move updates card |
+| `skip-card.spec.js` | Skip hides card, toast appears, auto-dismiss, undo restores |
 
 ### Updated Tests
 - `card-actions.spec.js` - Updated for ≡ menu and fixed Save Edit behavior
@@ -45,9 +51,7 @@ New test files documented in `TESTS.md`:
 4. ~~View history not implemented~~ → Fixed
 
 ## Still TODO (next PR)
-- Settings Panel (edit deck)
-- Move to Deck modal
-- Skip toast with undo
+- Cross-deck "All" view
 
 ---
 

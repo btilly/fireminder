@@ -146,11 +146,45 @@ Interval button styling and behavior.
 
 ---
 
+### 10. `settings-panel.spec.js`
+Deck settings screen.
+
+| Test | What it covers |
+|------|----------------|
+| Open from deck screen | ⚙ Settings button opens panel |
+| Edit deck name | Name updates in sidebar, header, footer |
+| Edit starting interval | New cards use new interval |
+| Edit queue limit | Limits cards shown per day |
+| Delete deck | Confirmation, removes deck + cards |
+| Cancel | ✕ closes without saving |
+
+### 11. `move-to-deck.spec.js`
+Card reassignment modal.
+
+| Test | What it covers |
+|------|----------------|
+| Open from menu | ≡ → "Move to deck..." opens modal |
+| Open from detail | Button in Card Detail view |
+| Current deck disabled | Can't select same deck |
+| Move updates card | Card appears in new deck |
+| Modal closes | After move or cancel |
+
+### 12. `skip-card.spec.js`
+Skip and undo functionality.
+
+| Test | What it covers |
+|------|----------------|
+| Skip from menu | ≡ → "Skip (review later)" |
+| Card hidden | Skipped card not in queue |
+| Toast appears | "Skipped. Will show again later today." |
+| Toast auto-dismisses | Gone after 3 seconds |
+| Undo works | Card returns to queue |
+| Undo clears toast | Toast disappears on undo |
+
+---
+
 ## Not Yet Implemented
 
-- Settings Panel (edit deck name, interval, limit, delete)
-- Skip toast (snackbar with undo)
-- Move to deck modal
 - Cross-deck "All" view
 
 ---
