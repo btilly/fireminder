@@ -1161,6 +1161,16 @@ html, body {
   text-decoration: underline;
 }
 
+.reflections-reveal {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-md);
+}
+
 .reflections-expanded {
   margin-top: var(--space-md);
   padding-top: var(--space-md);

@@ -1153,25 +1153,21 @@ createApp({
             <div v-else class="card-content">{{ currentCard.content }}</div>
           </div>
           
-          <!-- Past Reflections (inline display) -->
+          <!-- Past Reflections (hidden by default to encourage fresh reflection) -->
           <div class="past-reflections" v-if="!isEditing && cardReflections.length > 0">
-            <div class="reflection-latest">
-              <div class="reflection-header">
-                <span class="reflection-icon">💭</span>
-                <span class="reflection-date">{{ formatHistoryDate(cardReflections[0].date) }}:</span>
-              </div>
-              <div class="reflection-text">"{{ cardReflections[0].reflection }}"</div>
-            </div>
+            <!-- Hidden by default - click to reveal -->
             <button 
-              v-if="cardReflections.length > 1"
-              class="reflections-toggle"
-              @click="showAllReflections = !showAllReflections"
+              v-if="!showAllReflections"
+              class="reflections-toggle reflections-reveal"
+              @click="showAllReflections = true"
             >
-              {{ showAllReflections ? '▴ Hide' : '▾ ' + (cardReflections.length - 1) + ' more reflection' + (cardReflections.length > 2 ? 's' : '') }}
+              💭 Show {{ cardReflections.length }} past reflection{{ cardReflections.length > 1 ? 's' : '' }}
             </button>
+            
+            <!-- Revealed reflections -->
             <div class="reflections-expanded" v-if="showAllReflections">
               <div 
-                v-for="(ref, idx) in cardReflections.slice(1)" 
+                v-for="(ref, idx) in cardReflections" 
                 :key="idx"
                 class="reflection-item"
               >
@@ -1181,6 +1177,12 @@ createApp({
                 </div>
                 <div class="reflection-text">"{{ ref.reflection }}"</div>
               </div>
+              <button 
+                class="reflections-toggle"
+                @click="showAllReflections = false"
+              >
+                ▴ Hide reflections
+              </button>
             </div>
           </div>
 
