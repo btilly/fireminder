@@ -663,6 +663,10 @@ createApp({
       }
     }
     
+    function openAllCards() {
+      showAllCards.value = true;
+    }
+    
     function openSettings() {
       if (!currentDeck.value) return;
       settingsName.value = currentDeck.value.name;
@@ -840,6 +844,7 @@ createApp({
       currentDeckId,
       currentDeck,
       currentCard,
+      currentDeckCards,
       dueCards,
       showSidebar,
       showAddCard,
@@ -852,6 +857,7 @@ createApp({
       settingsName,
       settingsInterval,
       settingsLimit,
+      openAllCards,
       openSettings,
       saveSettings,
       deleteDeck,
@@ -1141,7 +1147,7 @@ createApp({
             </div>
           </div>
           <div class="empty-deck-actions">
-            <button class="btn-secondary" @click="showAllCards = true">Show all cards</button>
+            <button class="btn-secondary" @click="openAllCards">Show all cards</button>
             <button class="btn-secondary" @click="openSettings">⚙ Settings</button>
           </div>
         </div>

@@ -41,26 +41,30 @@ await timeTravel(page, futureDate(2));
 
 ## Test Status
 
-**38 passing, 11 blocked** (as of Dec 28, 2025)
+**49 passing** (as of Dec 29, 2025)
 
 | Test File | Status | Notes |
 |-----------|--------|-------|
 | `happy-path.spec.js` | ✅ 3/3 | Core user journey |
 | `card-actions.spec.js` | ✅ 6/6 | Rephrase, retire, delete |
-| `queue-priority.spec.js` | ⚠️ 3/4 | 1 test flaky on date edge |
+| `queue-priority.spec.js` | ✅ 4/4 | Date scheduling, time travel |
 | `time-travel.spec.js` | ✅ 4/4 | Developer feature |
 | `smoke.spec.js` | ✅ 10/10 | Sidebar, theme, edge cases |
 | `settings-panel.spec.js` | ✅ 5/5 | Deck settings |
 | `move-to-deck.spec.js` | ✅ 4/4 | Move card between decks |
-| `view-history.spec.js` | ⚠️ 3/5 | 2 blocked on empty state text |
-| `skip-card.spec.js` | ❌ 0/4 | **BLOCKED** - click not working |
-| `all-cards-list.spec.js` | ❌ 0/4 | **BLOCKED** - click not working |
+| `view-history.spec.js` | ✅ 5/5 | Card history panel |
+| `skip-card.spec.js` | ✅ 4/4 | Skip card with undo |
+| `all-cards-list.spec.js` | ✅ 4/4 | All cards list and detail view |
 
-### Blocked Issues
+### Bug Fixed (Dec 29)
 
-1. **"Show all cards" button** - Click fires but panel doesn't open. Vue reactivity issue?
-2. **Skip card menu item** - Same issue - click happens, no effect.
-3. **View history empty state** - Looking for wrong text pattern.
+**Root cause:** `currentDeckCards` computed property was not exported from `setup()`, causing Vue render errors when the All Cards panel tried to display.
+
+**Fix:**
+1. Added `currentDeckCards` to the return statement in `setup()`
+2. Added `openAllCards()` function for consistency with other handlers
+
+All previously blocked tests now pass.
 
 ---
 

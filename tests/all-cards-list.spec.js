@@ -13,10 +13,8 @@ test.describe('All Cards List', () => {
   test('show all cards button opens panel with cards', async ({ page }) => {
     await createCard(page, 'Test card for list');
     
-    // Click "Show all cards" button using text selector
+    // Click "Show all cards" button
     await page.locator('button:has-text("Show all cards")').click();
-    
-    // Wait for panel to appear
     await page.waitForTimeout(500);
     
     // Should see the panel with card content
