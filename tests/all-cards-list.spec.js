@@ -54,4 +54,57 @@ test.describe('All Cards List', () => {
     // Should open detail view (different panel)
     await expect(page.locator('.panel-title')).toContainText('Card Detail');
   });
+  
+  test('can edit card from detail view', async ({ page }) => {
+    await createCard(page, 'Original content');
+    
+    // Open all cards and click on card
+    await page.getByRole('button', { name: 'Show all cards' }).click();
+    await page.waitForTimeout(500);
+    await page.locator('.card-list-item').first().click();
+    await page.waitForTimeout(300);
+    
+    // Should see Card Detail
+    await expect(page.locator('.panel-title')).toContainText('Card Detail');
+    await expect(page.locator('.detail-content')).toContainText('Original content');
+    
+    // Click Edit
+    await page.locator('.panel-action').click();
+    
+    // Should see textarea with content
+    await expect(page.locator('.edit-textarea')).toBeVisible();
+    
+    // Clear and type new content
+    await page.locator('.edit-textarea').fill('Updated content');
+    
+    // Click Save
+    await page.locator('.panel-action').click();
+    await page.waitForTimeout(500);
+    
+    // Should show updated content (exit edit mode)
+    await expect(page.locator('.detail-content')).toContainText('Updated content');
+    await expect(page.locator('.edit-textarea')).not.toBeVisible();
+  });
+  
+  test('cancel edit preserves original content', async ({ page }) => {
+    await createCard(page, 'Keep this content');
+    
+    // Open all cards and click on card
+    await page.getByRole('button', { name: 'Show all cards' }).click();
+    await page.waitForTimeout(500);
+    await page.locator('.card-list-item').first().click();
+    await page.waitForTimeout(300);
+    
+    // Click Edit
+    await page.locator('.panel-action').click();
+    
+    // Type something different
+    await page.locator('.edit-textarea').fill('Changed content');
+    
+    // Click Cancel
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    
+    // Original content should be preserved
+    await expect(page.locator('.detail-content')).toContainText('Keep this content');
+  });
 });

@@ -157,6 +157,8 @@ createApp({
     const showHistory = ref(false);
     const showAllCards = ref(false);
     const showCardDetail = ref(null); // card object or null
+    const isEditingDetail = ref(false);
+    const detailEditContent = ref('');
     const showSettings = ref(false);
     const settingsName = ref('');
     const settingsInterval = ref(2);
@@ -692,6 +694,42 @@ createApp({
       showCardDetail.value = null;
     }
     
+    function startEditingDetail() {
+      if (!showCardDetail.value) return;
+      detailEditContent.value = showCardDetail.value.content;
+      isEditingDetail.value = true;
+    }
+    
+    function cancelDetailEdit() {
+      isEditingDetail.value = false;
+      detailEditContent.value = '';
+    }
+    
+    async function saveDetailEdit() {
+      if (!showCardDetail.value || !user.value) return;
+      
+      const newContent = detailEditContent.value.trim();
+      if (!newContent) return;
+      
+      try {
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', showCardDetail.value.id);
+        await setDoc(cardRef, { content: newContent }, { merge: true });
+        
+        // Update local state
+        const idx = cards.value.findIndex(c => c.id === showCardDetail.value.id);
+        if (idx !== -1) {
+          cards.value[idx].content = newContent;
+        }
+        showCardDetail.value.content = newContent;
+        
+        isEditingDetail.value = false;
+        detailEditContent.value = '';
+      } catch (err) {
+        console.error('Failed to save edit:', err);
+        alert('Failed to save changes');
+      }
+    }
+    
     async function retireCardFromDetail() {
       if (!showCardDetail.value || !user.value) return;
       
@@ -984,6 +1022,11 @@ createApp({
       showResetConfirm,
       promptResetTimeTravel,
       resetTimeTravelAndDiscard,
+      isEditingDetail,
+      detailEditContent,
+      startEditingDetail,
+      cancelDetailEdit,
+      saveDetailEdit,
     };
   },
 
@@ -1386,12 +1429,26 @@ createApp({
       <!-- Card Detail Panel -->
       <div class="panel" v-if="showCardDetail">
         <div class="panel-header">
-          <button class="icon-btn" @click="showCardDetail = null">✕</button>
+          <button class="icon-btn" @click="showCardDetail = null; isEditingDetail = false">✕</button>
           <span class="panel-title">Card Detail</span>
-          <button class="panel-action" @click="startEditingFromDetail">Edit</button>
+          <button v-if="!isEditingDetail" class="panel-action" @click="startEditingDetail">Edit</button>
+          <button v-else class="panel-action" @click="saveDetailEdit">Save</button>
         </div>
         <div class="panel-body">
-          <div class="detail-content">{{ showCardDetail.content }}</div>
+          <!-- View mode -->
+          <div v-if="!isEditingDetail" class="detail-content">{{ showCardDetail.content }}</div>
+          <!-- Edit mode -->
+          <div v-else class="detail-edit">
+            <textarea 
+              class="form-input edit-textarea" 
+              v-model="detailEditContent"
+              rows="6"
+              placeholder="Card content..."
+            ></textarea>
+            <div class="edit-actions">
+              <button class="btn-secondary" @click="cancelDetailEdit">Cancel</button>
+            </div>
+          </div>
           
           <div class="detail-meta">
             <div class="detail-row">

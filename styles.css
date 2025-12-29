@@ -1306,6 +1306,25 @@ html, body {
   text-align: center;
 }
 
+.detail-edit {
+  margin-bottom: var(--space-lg);
+}
+
+.detail-edit .edit-textarea {
+  width: 100%;
+  min-height: 150px;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  resize: vertical;
+  margin-bottom: var(--space-md);
+}
+
+.detail-edit .edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
 .detail-meta {
   margin-bottom: var(--space-lg);
 }
