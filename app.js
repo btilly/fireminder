@@ -132,6 +132,11 @@ createApp({
     const showAddCard = ref(false);
     const showNewDeck = ref(false);
     const showMenu = ref(false);
+    const showHistory = ref(false);
+    const showAllCards = ref(false);
+    const showCardDetail = ref(null); // card object or null
+    const showSettings = ref(false);
+    const showMoveToDeck = ref(false);
     const showThemePicker = ref(false);
     const showDatePicker = ref(false);
     
@@ -501,6 +506,31 @@ createApp({
       isEditing.value = false;
       editedContent.value = '';
     }
+    
+    async function saveEdit() {
+      if (!currentCard.value || !user.value || !isEditing.value) return;
+      if (editedContent.value === currentCard.value.content) {
+        // No changes, just close
+        cancelEditing();
+        return;
+      }
+      
+      try {
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', currentCard.value.id);
+        await setDoc(cardRef, { content: editedContent.value }, { merge: true });
+        
+        // Update local state
+        const idx = cards.value.findIndex(c => c.id === currentCard.value.id);
+        if (idx !== -1) {
+          cards.value[idx].content = editedContent.value;
+        }
+        
+        isEditing.value = false;
+        editedContent.value = '';
+      } catch (error) {
+        console.error('Error saving edit:', error);
+      }
+    }
 
     function selectDeck(deckId) {
       currentDeckId.value = deckId;
@@ -521,6 +551,71 @@ createApp({
     
     function clearSimulatedDate() {
       applySimulatedDate('');
+    }
+
+    // --- Helper functions for new panels ---
+    function formatHistoryDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    }
+    
+    function formatDueDate(dateStr) {
+      if (!dateStr) return 'Not scheduled';
+      const today = effectiveToday.value;
+      if (dateStr === today) return 'Today';
+      if (dateStr < today) return 'Overdue';
+      
+      const dueDate = new Date(dateStr);
+      const todayDate = new Date(today);
+      const diffDays = Math.ceil((dueDate - todayDate) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) return 'Tomorrow';
+      return `in ${diffDays} days`;
+    }
+    
+    function startEditingFromDetail() {
+      if (!showCardDetail.value) return;
+      // Set the current card to the detail card for editing
+      editedContent.value = showCardDetail.value.content;
+      isEditing.value = true;
+      showCardDetail.value = null;
+    }
+    
+    async function retireCardFromDetail() {
+      if (!showCardDetail.value || !user.value) return;
+      
+      try {
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', showCardDetail.value.id);
+        await setDoc(cardRef, { retired: true }, { merge: true });
+        
+        const idx = cards.value.findIndex(c => c.id === showCardDetail.value.id);
+        if (idx !== -1) {
+          cards.value[idx].retired = true;
+        }
+        showCardDetail.value = null;
+      } catch (error) {
+        console.error('Error retiring card:', error);
+      }
+    }
+    
+    async function deleteCardFromDetail() {
+      if (!showCardDetail.value || !user.value) return;
+      if (!confirm('Delete this card permanently?')) return;
+      
+      try {
+        const cardRef = doc(db, 'users', user.value.uid, 'cards', showCardDetail.value.id);
+        await deleteDoc(cardRef);
+        
+        cards.value = cards.value.filter(c => c.id !== showCardDetail.value.id);
+        showCardDetail.value = null;
+      } catch (error) {
+        console.error('Error deleting card:', error);
+      }
     }
 
     function setTheme(theme) {
@@ -573,6 +668,11 @@ createApp({
       showAddCard,
       showNewDeck,
       showMenu,
+      showHistory,
+      showAllCards,
+      showCardDetail,
+      showSettings,
+      showMoveToDeck,
       showThemePicker,
       showDatePicker,
       simulatedDateRef,
@@ -611,6 +711,12 @@ createApp({
       deleteCard,
       startEditing,
       cancelEditing,
+      saveEdit,
+      startEditingFromDetail,
+      retireCardFromDetail,
+      deleteCardFromDetail,
+      formatHistoryDate,
+      formatDueDate,
       selectDeck,
       openAddCard,
       setTheme,
@@ -751,7 +857,7 @@ createApp({
 
           <div class="interval-controls" v-if="!isEditing">
             <button 
-              class="interval-btn" 
+              class="interval-btn shorter" 
               :class="{ active: selectedInterval === 'shorter' }"
               @click="selectedInterval = selectedInterval === 'shorter' ? 'default' : 'shorter'"
             >
@@ -759,7 +865,7 @@ createApp({
             </button>
             <span class="interval-current">{{ nextInterval }} days</span>
             <button 
-              class="interval-btn"
+              class="interval-btn longer"
               :class="{ active: selectedInterval === 'longer' }"
               @click="selectedInterval = selectedInterval === 'longer' ? 'default' : 'longer'"
             >
@@ -770,15 +876,15 @@ createApp({
           <div class="action-row">
             <template v-if="isEditing">
               <button class="btn-secondary" @click="cancelEditing">Cancel</button>
-              <button class="btn-primary" @click="reviewCard">Save Edit</button>
+              <button class="btn-primary" @click="saveEdit">Save Edit</button>
             </template>
             <template v-else>
               <button class="btn-primary" @click="reviewCard">✓ Review Done</button>
               <div class="dropdown">
-                <button class="menu-btn" @click="showMenu = !showMenu">•••</button>
+                <button class="menu-btn" @click="showMenu = !showMenu">≡</button>
                 <div class="dropdown-menu" v-if="showMenu">
                   <button class="dropdown-item" @click="startEditing">Rephrase card</button>
-                  <button class="dropdown-item">View history</button>
+                  <button class="dropdown-item" @click="showHistory = true; showMenu = false">View history</button>
                   <button class="dropdown-item">Skip (review later)</button>
                   <button class="dropdown-item">Move to deck...</button>
                   <div class="dropdown-divider"></div>
@@ -811,7 +917,7 @@ createApp({
               <span class="stat-value">{{ deckStats.nextDueIn !== null ? 'in ' + deckStats.nextDueIn + ' days' : '—' }}</span>
             </div>
           </div>
-          <button class="btn-secondary">Show all cards</button>
+          <button class="btn-secondary" @click="showAllCards = true">Show all cards</button>
         </div>
       </main>
 
@@ -900,6 +1006,127 @@ createApp({
               <option :value="10">10 cards</option>
               <option :value="20">20 cards</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Panel -->
+      <div class="panel" v-if="showHistory && currentCard">
+        <div class="panel-header">
+          <button class="icon-btn" @click="showHistory = false">✕</button>
+          <span class="panel-title">History</span>
+        </div>
+        <div class="panel-body">
+          <!-- Current Version -->
+          <div class="history-section">
+            <div class="history-label">CURRENT</div>
+            <div class="history-card-content">{{ currentCard.content }}</div>
+          </div>
+          
+          <!-- History Entries -->
+          <div 
+            v-for="(entry, index) in (currentCard.history || []).slice().reverse()" 
+            :key="index"
+            class="history-section"
+          >
+            <div class="history-date">{{ formatHistoryDate(entry.date) }}</div>
+            <div class="history-card-content" v-if="entry.previousContent">
+              {{ entry.previousContent }}
+            </div>
+            <div class="history-reflection" v-if="entry.reflection">
+              <span class="history-reflection-label">Reflection:</span>
+              {{ entry.reflection }}
+            </div>
+            <div class="history-interval">
+              Interval: {{ entry.interval }} days
+            </div>
+          </div>
+          
+          <!-- No history yet -->
+          <div v-if="!currentCard.history || currentCard.history.length === 0" class="history-empty">
+            No history yet. This card hasn't been reviewed.
+          </div>
+        </div>
+      </div>
+
+      <!-- All Cards Panel -->
+      <div class="panel" v-if="showAllCards">
+        <div class="panel-header">
+          <button class="icon-btn" @click="showAllCards = false">✕</button>
+          <span class="panel-title">All Cards ({{ currentDeck?.name }})</span>
+        </div>
+        <div class="panel-body">
+          <!-- Active Cards -->
+          <div class="cards-section">
+            <div class="cards-section-title">ACTIVE ({{ deckStats.active }})</div>
+            <div 
+              v-for="card in currentDeckCards.filter(c => !c.retired && !c.deleted)"
+              :key="card.id"
+              class="card-list-item"
+              @click="showCardDetail = card; showAllCards = false"
+            >
+              <div class="card-list-content">{{ card.content }}</div>
+              <div class="card-list-due">Due: {{ formatDueDate(card.nextDueDate) }}</div>
+            </div>
+          </div>
+          
+          <!-- Retired Cards -->
+          <div class="cards-section" v-if="currentDeckCards.filter(c => c.retired).length > 0">
+            <div class="cards-section-title">RETIRED ({{ deckStats.retired }})</div>
+            <div 
+              v-for="card in currentDeckCards.filter(c => c.retired)"
+              :key="card.id"
+              class="card-list-item retired"
+              @click="showCardDetail = card; showAllCards = false"
+            >
+              <div class="card-list-content">{{ card.content }}</div>
+              <div class="card-list-due">Retired</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Detail Panel -->
+      <div class="panel" v-if="showCardDetail">
+        <div class="panel-header">
+          <button class="icon-btn" @click="showCardDetail = null">✕</button>
+          <span class="panel-title">Card Detail</span>
+          <button class="panel-action" @click="startEditingFromDetail">Edit</button>
+        </div>
+        <div class="panel-body">
+          <div class="detail-content">{{ showCardDetail.content }}</div>
+          
+          <div class="detail-meta">
+            <div class="detail-row">
+              <span class="detail-label">Deck:</span>
+              <span>{{ currentDeck?.name }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Created:</span>
+              <span>{{ formatHistoryDate(showCardDetail.createdAt) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Last reviewed:</span>
+              <span>{{ showCardDetail.lastReviewDate ? formatHistoryDate(showCardDetail.lastReviewDate) : 'Never' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Current interval:</span>
+              <span>{{ showCardDetail.currentInterval }} days</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Next due:</span>
+              <span>{{ formatDueDate(showCardDetail.nextDueDate) }}</span>
+            </div>
+          </div>
+          
+          <div class="detail-actions">
+            <button class="btn-secondary" @click="showHistory = true; showCardDetail = null">View History</button>
+            <button class="btn-secondary" @click="showMoveToDeck = true">Move to Deck</button>
+          </div>
+          
+          <div class="detail-danger">
+            <button class="btn-danger-outline" @click="retireCardFromDetail">Retire</button>
+            <button class="btn-danger" @click="deleteCardFromDetail">Delete</button>
           </div>
         </div>
       </div>
