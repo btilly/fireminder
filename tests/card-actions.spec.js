@@ -23,7 +23,7 @@ test.describe('Card Actions', () => {
     await expect(menu).toContainText(/delete/i);
   });
 
-  test('rephrase: edit and save updates card', async ({ page }) => {
+  test('rephrase: edit and save updates card text, returns to review', async ({ page }) => {
     // Open menu and click rephrase
     await page.locator('.menu-btn').click();
     await page.getByRole('button', { name: /rephrase/i }).click();
@@ -39,8 +39,11 @@ test.describe('Card Actions', () => {
     // Save
     await page.getByRole('button', { name: /save edit/i }).click();
     
-    // Card reviewed and gone
-    await expect(page.getByText(/all caught up/i)).toBeVisible();
+    // Should return to review screen (NOT complete review)
+    // Card should show updated content
+    await expect(page.locator('.card-content')).toContainText('Updated content');
+    // Review Done button should be visible
+    await expect(page.getByRole('button', { name: /review done/i })).toBeVisible();
   });
 
   test('rephrase: cancel preserves original', async ({ page }) => {
