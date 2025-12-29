@@ -26,6 +26,16 @@ open http://localhost:3000
 
 ---
 
+## Pushing to GitHub
+
+The repo uses a deploy key. Due to SSH agent interference, use this command:
+
+```bash
+GIT_SSH_COMMAND="ssh -o IdentitiesOnly=yes -o IdentityFile=~/.ssh/fireminder_deploy -o IdentityAgent=none" git push
+```
+
+---
+
 ## Design Philosophy
 
 - **Clean, minimal interface** - no clutter
