@@ -329,10 +329,12 @@ createApp({
       }
       
       const deckId = `deck_${Date.now()}`;
+      // Sanitize queue limit: positive numbers only, otherwise null (unlimited)
+      const queueLimit = (newDeckLimit.value && newDeckLimit.value > 0) ? newDeckLimit.value : null;
       const deck = {
         name: newDeckName.value.trim(),
         startingInterval: newDeckInterval.value,
-        queueLimit: newDeckLimit.value,
+        queueLimit: queueLimit,
         createdAt: getToday().toISOString(),
       };
       
@@ -896,13 +898,14 @@ createApp({
             >
           </div>
           <div class="form-group">
-            <label class="form-label">Queue limit</label>
-            <select class="form-select" v-model="newDeckLimit">
-              <option :value="null">Unlimited</option>
-              <option :value="5">5 cards</option>
-              <option :value="10">10 cards</option>
-              <option :value="20">20 cards</option>
-            </select>
+            <label class="form-label">Queue limit (blank = unlimited)</label>
+            <input 
+              type="number" 
+              class="form-input" 
+              placeholder="Unlimited"
+              min="1"
+              v-model.number="newDeckLimit"
+            >
           </div>
         </div>
       </div>
