@@ -1,6 +1,6 @@
 // Test 2: Create Card Flow
 import { test, expect } from '@playwright/test';
-import { waitForDemoLogin, createDeck } from './helpers.js';
+import { waitForDemoLogin, createDeck, uniqueName } from './helpers.js';
 
 test.describe('Create Card Flow', () => {
 
@@ -11,7 +11,7 @@ test.describe('Create Card Flow', () => {
     // Ensure a deck exists
     const hasNoDeck = await page.getByText(/welcome/i).isVisible().catch(() => false);
     if (hasNoDeck) {
-      await createDeck(page, { name: 'Card Test Deck' });
+      await createDeck(page, { name: uniqueName('CardTest') });
     }
   });
 
@@ -63,8 +63,8 @@ test.describe('Create Card Flow', () => {
     // Create a second deck first
     await page.locator('.icon-btn').filter({ hasText: '≡' }).click();
     await page.getByRole('button', { name: /new deck/i }).click();
-    await page.locator('.form-input').first().fill('Second Deck');
-    await page.getByRole('button', { name: /create/i }).click();
+    await page.locator('.form-input').first().fill(uniqueName('SecondDeck'));
+    await page.locator('.panel-action').click();
     
     // Now open Add Card
     await page.locator('.header-right .icon-btn').first().click();

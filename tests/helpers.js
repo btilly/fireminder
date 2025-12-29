@@ -1,6 +1,13 @@
 // Test helpers for Fireminder E2E tests
 
 /**
+ * Generate unique name to avoid test collisions
+ */
+export function uniqueName(base) {
+  return `${base}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
  * Wait for the app to auto-login with demo user (emulator mode)
  */
 export async function waitForDemoLogin(page) {
@@ -53,11 +60,17 @@ export async function createCard(page, content) {
   // Click + in header
   await page.locator('.header-right .icon-btn').first().click();
   
+  // Wait for panel to open
+  await page.locator('.panel').waitFor({ state: 'visible' });
+  
   // Fill content
   await page.locator('.panel-body textarea').fill(content);
   
-  // Save
-  await page.getByRole('button', { name: /save/i }).click();
+  // Save (use panel action button, same as createDeck)
+  await page.locator('.panel-action').click();
+  
+  // Wait for panel to close
+  await page.locator('.panel').waitFor({ state: 'hidden' });
 }
 
 /**

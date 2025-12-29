@@ -339,6 +339,7 @@ html, body {
   border-top: 1px solid var(--border);
   position: sticky;
   bottom: 0;
+  z-index: 50; /* Below panel (300), header (100) */
 }
 
 .tab {
@@ -656,6 +657,73 @@ html, body {
   color: var(--accent);
 }
 
+/* Sidebar Date Display */
+.sidebar-date {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  text-align: center;
+}
+
+.sidebar-date-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.sidebar-date-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+}
+
+.sidebar-date-simulated {
+  margin-top: var(--space-sm);
+  font-size: 0.8rem;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  padding: 0;
+}
+
+.btn-link:hover {
+  color: var(--text-primary);
+}
+
+/* Sidebar Settings */
+.sidebar-setting {
+  margin-bottom: var(--space-md);
+}
+
+.sidebar-setting-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+/* Inline Theme Picker (for sidebar) */
+.theme-picker-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 /* Utilities */
 .hidden {
   display: none !important;
@@ -729,6 +797,97 @@ html, body {
 
 .theme-swatch[data-theme="ember"] {
   background: linear-gradient(135deg, #1a1614 50%, #e85d04 50%);
+}
+
+/* Date Picker Dropdown */
+.date-picker-dropdown {
+  position: fixed;
+  top: 60px;
+  right: var(--space-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  z-index: 500;
+  min-width: 200px;
+}
+
+.date-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.date-input {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+}
+
+.date-picker-help {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-sm);
+}
+
+.btn-sm {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+
+.btn-sm:hover {
+  opacity: 0.9;
+}
+
+/* Time Travel Banner */
+.time-travel-banner {
+  background: linear-gradient(90deg, var(--accent), #ff6b0a);
+  color: white;
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.btn-reset {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+
+.btn-reset:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+/* Active state for calendar button */
+.icon-btn.active {
+  color: var(--accent);
 }
 
 /* Transitions */

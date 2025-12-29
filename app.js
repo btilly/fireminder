@@ -83,6 +83,9 @@ function getLongerInterval(current) {
 }
 
 // --- Date helpers ---
+
+// Note: simulatedDateRef is created inside setup() for reactivity
+
 function addDays(date, days) {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
@@ -130,6 +133,15 @@ createApp({
     const showNewDeck = ref(false);
     const showMenu = ref(false);
     const showThemePicker = ref(false);
+    const showDatePicker = ref(false);
+    
+    // Time travel - simulated date for testing
+    const storedSimDate = localStorage.getItem('fireminder-simulated-date') || '';
+    const simulatedDateRef = ref(storedSimDate);
+    if (storedSimDate) {
+      console.log('🕐 Restored simulated date:', storedSimDate);
+    }
+    
     const isEditing = ref(false);
     const selectedInterval = ref('default'); // 'shorter', 'default', 'longer'
     const currentTheme = ref(getStoredTheme());
@@ -155,16 +167,34 @@ createApp({
       return cards.value.filter(c => c.deckId === currentDeckId.value);
     });
 
+    // Helper functions using reactive simulatedDateRef
+    function getToday() {
+      if (simulatedDateRef.value) {
+        return new Date(simulatedDateRef.value);
+      }
+      return new Date();
+    }
+    
+    function getTodayFormatted() {
+      return formatDate(getToday());
+    }
+    
+    const effectiveToday = computed(() => getTodayFormatted());
+    const isTimeTraveling = computed(() => !!simulatedDateRef.value);
+
     const dueCards = computed(() => {
-      const today = formatDate(new Date());
+      const today = effectiveToday.value;
       const deckCards = currentDeckCards.value.filter(c => !c.retired && !c.deleted);
       
       // Split into reviewed and never-reviewed
       const reviewed = deckCards.filter(c => c.lastReviewDate);
       const neverReviewed = deckCards.filter(c => !c.lastReviewDate);
       
-      // Filter reviewed cards that are due
+      // Filter reviewed cards that are due (nextDueDate <= today)
       const dueReviewed = reviewed.filter(c => c.nextDueDate <= today);
+      
+      // Filter never-reviewed cards that are due (nextDueDate <= today)
+      const dueNeverReviewed = neverReviewed.filter(c => c.nextDueDate <= today);
       
       // Sort reviewed by overdue ratio (most overdue first)
       dueReviewed.sort((a, b) => {
@@ -176,10 +206,10 @@ createApp({
       });
       
       // Sort never-reviewed by creation date (oldest first / FIFO)
-      neverReviewed.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      dueNeverReviewed.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       
-      // Combine: overdue first, then never-reviewed
-      let queue = [...dueReviewed, ...neverReviewed];
+      // Combine: overdue first, then never-reviewed that are due
+      let queue = [...dueReviewed, ...dueNeverReviewed];
       
       // Apply queue limit
       const limit = currentDeck.value?.queueLimit;
@@ -326,13 +356,16 @@ createApp({
       const deck = decks.value.find(d => d.id === deckId);
       const cardId = `card_${Date.now()}`;
       
+      const startingInterval = deck?.startingInterval || 2;
+      const firstDueDate = addDays(getToday(), startingInterval);
+      
       const card = {
         deckId: deckId,
         content: newCardContent.value.trim(),
-        currentInterval: deck?.startingInterval || 2,
+        currentInterval: startingInterval,
         createdAt: new Date().toISOString(),
         lastReviewDate: null,
-        nextDueDate: null, // Will be set on first review
+        nextDueDate: formatDate(firstDueDate), // First review after starting interval
         retired: false,
         deleted: false,
         history: [],
@@ -354,7 +387,7 @@ createApp({
       if (!currentCard.value || !user.value) return;
       
       const card = currentCard.value;
-      const today = formatDate(new Date());
+      const today = getTodayFormatted();
       const isFirstReview = !card.lastReviewDate;
       
       // Calculate overdue decay
@@ -372,7 +405,7 @@ createApp({
         newInterval = getFibValue(idx);
       }
       
-      const nextDue = addDays(new Date(), newInterval);
+      const nextDue = addDays(getToday(), newInterval);
       
       // Build history entry
       const historyEntry = {
@@ -469,6 +502,17 @@ createApp({
       showAddCard.value = true;
     }
 
+    function applySimulatedDate(dateStr) {
+      simulatedDateRef.value = dateStr || '';
+      localStorage.setItem('fireminder-simulated-date', dateStr || '');
+      console.log('🕐 Simulated date:', dateStr || 'REAL TIME');
+      // Cards are automatically recalculated via reactivity
+    }
+    
+    function clearSimulatedDate() {
+      applySimulatedDate('');
+    }
+
     function setTheme(theme) {
       currentTheme.value = theme;
       applyTheme(theme);
@@ -520,6 +564,10 @@ createApp({
       showNewDeck,
       showMenu,
       showThemePicker,
+      showDatePicker,
+      simulatedDateRef,
+      effectiveToday,
+      isTimeTraveling,
       isEditing,
       selectedInterval,
       reflectionText,
@@ -556,6 +604,8 @@ createApp({
       selectDeck,
       openAddCard,
       setTheme,
+      applySimulatedDate,
+      clearSimulatedDate,
     };
   },
 
@@ -575,6 +625,16 @@ createApp({
           <button class="icon-btn" @click="showSidebar = false">✕</button>
         </div>
         <div class="sidebar-content">
+          <!-- Current Date Display -->
+          <div class="sidebar-date">
+            <div class="sidebar-date-label">Today</div>
+            <div class="sidebar-date-value">{{ effectiveToday }}</div>
+            <div v-if="isTimeTraveling" class="sidebar-date-simulated">
+              🕐 Simulated
+              <button class="btn-link" @click="clearSimulatedDate">Reset</button>
+            </div>
+          </div>
+          
           <div class="sidebar-section-title">My Decks</div>
           <ul class="deck-list">
             <li 
@@ -591,6 +651,36 @@ createApp({
           <button class="new-deck-btn" @click="showNewDeck = true; showSidebar = false">
             + New Deck
           </button>
+          
+          <!-- Settings Section -->
+          <div class="sidebar-section-title" style="margin-top: var(--space-lg);">Settings</div>
+          
+          <!-- Time Travel -->
+          <div class="sidebar-setting">
+            <div class="sidebar-setting-label">📅 Time Travel</div>
+            <input 
+              type="date" 
+              class="date-input"
+              :value="simulatedDateRef"
+              @change="applySimulatedDate($event.target.value)"
+            />
+          </div>
+          
+          <!-- Theme Picker -->
+          <div class="sidebar-setting">
+            <div class="sidebar-setting-label">🎨 Theme</div>
+            <div class="theme-picker-inline">
+              <button 
+                v-for="theme in THEMES" 
+                :key="theme"
+                class="theme-swatch"
+                :class="{ active: currentTheme === theme }"
+                :data-theme="theme"
+                :title="theme"
+                @click="setTheme(theme)"
+              ></button>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -603,22 +693,14 @@ createApp({
         </div>
         <div class="header-right">
           <button class="icon-btn" @click="openAddCard">+</button>
-          <button class="icon-btn" @click="showThemePicker = !showThemePicker">🎨</button>
-        </div>
-        
-        <!-- Theme Picker -->
-        <div class="theme-picker" v-if="showThemePicker">
-          <button 
-            v-for="theme in THEMES" 
-            :key="theme"
-            class="theme-swatch"
-            :class="{ active: currentTheme === theme }"
-            :data-theme="theme"
-            :title="theme"
-            @click="setTheme(theme)"
-          ></button>
         </div>
       </header>
+
+      <!-- Time Travel Banner -->
+      <div v-if="isTimeTraveling" class="time-travel-banner">
+        🕐 Simulating: {{ effectiveToday }}
+        <button class="btn-reset" @click="clearSimulatedDate">← Back to today</button>
+      </div>
 
       <!-- Main Content -->
       <main class="main" v-if="user">
@@ -724,8 +806,8 @@ createApp({
         </div>
       </main>
 
-      <!-- Footer Tabs -->
-      <footer class="footer-tabs" v-if="user && decks.length > 0">
+      <!-- Footer Tabs - hidden when panels are open -->
+      <footer class="footer-tabs" v-if="user && decks.length > 0 && !showAddCard && !showNewDeck">
         <button 
           v-for="deck in decks.slice(0, 3)" 
           :key="deck.id"

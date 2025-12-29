@@ -1,5 +1,21 @@
 # Fireminder Test Cases
 
+## Current Test Status (2025-12-28)
+
+**Summary:** 9 passing, 18 failing
+
+| Test File | Status | Notes |
+|-----------|--------|-------|
+| 01-first-time-user.spec.js | ✅ 3/3 passing | Works |
+| 02-create-card.spec.js | ⚠️ 2/4 passing | 2 fail due to card scheduling change |
+| 03-review-flow.spec.js | ❌ 0/8 passing | All fail - no cards available (scheduled for future) |
+| 05-card-actions.spec.js | ❌ 0/8 passing | All fail - no cards available |
+| 09-sidebar-navigation.spec.js | ✅ 4/4 passing | Works |
+
+**Root cause of failures:** Cards are now correctly scheduled for `today + startingInterval` (per Kate's feedback). Tests expected immediate appearance. Tests need updating.
+
+---
+
 ## Local Setup for Playwright
 
 ```bash
@@ -15,7 +31,7 @@ python3 -m http.server 3000
 
 **Test against:** http://localhost:3000
 
-**Note:** In emulator mode, the app auto-signs in as "Demo User" - no Google OAuth required.
+**Note:** In emulator mode, the app auto-signs in anonymously - no Google OAuth required.
 
 ---
 
@@ -27,14 +43,14 @@ cd ~/code/fireminder
 npm install
 npx playwright install chromium
 
-# Run all tests (headless)
+# Run specific test file (recommended)
+npx playwright test tests/01-first-time-user.spec.js
+
+# Run all tests (takes ~7 minutes, ask Kate first!)
 npm test
 
 # Run tests with browser visible (debugging)
 npm run test:headed
-
-# Run specific test file
-npx playwright test tests/01-first-time-user.spec.js
 
 # Run with Playwright UI (interactive)
 npm run test:ui
@@ -48,7 +64,7 @@ npm run test:ui
 
 ## User Flows to Test
 
-### 1. First-Time User Flow
+### 1. First-Time User Flow ✅ PASSING
 
 **Test file:** `tests/01-first-time-user.spec.js`
 **Run:** `npx playwright test tests/01-first-time-user.spec.js`
@@ -81,7 +97,7 @@ npm run test:ui
 
 ---
 
-### 2. Create Card Flow
+### 2. Create Card Flow ⚠️ PARTIAL
 
 **Test file:** `tests/02-create-card.spec.js`
 **Run:** `npx playwright test tests/02-create-card.spec.js`
@@ -97,20 +113,31 @@ npm run test:ui
 
 **Expected:**
 - Panel closes
-- Card appears in review queue
-- Card shows in main review area
+- Card is created (but NOT visible immediately - scheduled for future)
+- Empty deck state shows ("All caught up")
 
 **Test Results:**
-- 🚫 BLOCKED by Test 1 bug (panel doesn't close after deck creation)
+- ✅ Panel opens on + click
+- ✅ Footer hidden (full takeover)
+- ✅ Deck selection works
+- ❌ Tests expecting immediate card appearance fail (correct behavior now)
+
+**Bugs Fixed:**
+- Footer visible when panel open (added v-if to hide footer during panel)
+
+**Design Change:**
+- Cards are now scheduled for `today + startingInterval`
+- They don't appear immediately - this is correct per spec
+- Tests need updating to reflect this
 
 ---
 
-### 3. Basic Review Flow
+### 3. Basic Review Flow ❌ TESTS NEED UPDATE
 
 **Test file:** `tests/03-review-flow.spec.js`
 **Run:** `npx playwright test tests/03-review-flow.spec.js`
 
-**Precondition:** Deck has at least one card due
+**Precondition:** Deck has at least one card DUE (not just created)
 
 **Steps:**
 1. View card content
@@ -124,14 +151,14 @@ npm run test:ui
 - Card's nextDueDate is set to today + interval
 
 **Test Results:**
-- 🚫 BLOCKED by Test 1 bug (needs deck + card creation)
+- ❌ All 8 tests fail - no cards available (correctly scheduled for future)
+- Tests need to create cards with `nextDueDate: today` to simulate due cards
 
 ---
 
-### 4. Interval Controls
+### 4. Interval Controls ❌ TESTS NEED UPDATE
 
 **Test file:** `tests/03-review-flow.spec.js`
-**Run:** `npx playwright test tests/03-review-flow.spec.js`
 
 **Precondition:** Card is showing for review
 
@@ -150,14 +177,13 @@ npm run test:ui
 - Fibonacci sequence is correct: 1, 2, 3, 5, 8, 13, 21...
 
 **Test Results:**
-- 🚫 BLOCKED by Test 1 bug (needs deck + card creation)
+- ❌ All tests timeout - no card visible to test interval controls
 
 ---
 
-### 5. Rephrase Card (Inline Edit)
+### 5. Rephrase Card (Inline Edit) ❌ TESTS NEED UPDATE
 
 **Test file:** `tests/05-card-actions.spec.js`
-**Run:** `npx playwright test tests/05-card-actions.spec.js`
 
 **Precondition:** Card is showing for review
 
@@ -176,11 +202,11 @@ npm run test:ui
 - Review is also completed (card leaves queue)
 
 **Test Results:**
-- 🚫 BLOCKED by Test 1 bug (needs deck + card creation)
+- ❌ All tests timeout - waiting for `.menu-btn` which doesn't exist (no card visible)
 
 ---
 
-### 6. Cancel Edit
+### 6. Cancel Edit ❌ TESTS NEED UPDATE
 
 **Test file:** `tests/05-card-actions.spec.js`
 
@@ -195,11 +221,11 @@ npm run test:ui
 - Review buttons return
 
 **Test Results:**
-- 🚫 BLOCKED by Test 1 bug
+- ❌ Blocked - no card visible
 
 ---
 
-### 7. Retire Card
+### 7. Retire Card ❌ TESTS NEED UPDATE
 
 **Test file:** `tests/05-card-actions.spec.js`
 
@@ -215,11 +241,11 @@ npm run test:ui
 - Stats show incremented "retired" count
 
 **Test Results:**
-- 🚫 BLOCKED by Test 1 bug
+- ❌ Blocked - no card visible
 
 ---
 
-### 8. Delete Card
+### 8. Delete Card ❌ TESTS NEED UPDATE
 
 **Test file:** `tests/05-card-actions.spec.js`
 
@@ -237,11 +263,11 @@ npm run test:ui
 - Card does NOT appear in retired count
 
 **Test Results:**
-- 🚫 BLOCKED by Test 1 bug
+- ❌ Blocked - no card visible
 
 ---
 
-### 9. Sidebar Navigation
+### 9. Sidebar Navigation ✅ PASSING
 
 **Test file:** `tests/09-sidebar-navigation.spec.js`
 **Run:** `npx playwright test tests/09-sidebar-navigation.spec.js`
@@ -265,14 +291,12 @@ npm run test:ui
 - ✅ Sidebar shows "My Decks" section and "+ New Deck" button
 - ✅ Clicking overlay closes sidebar
 - ✅ Clicking X closes sidebar
-- 📝 Deck selection test pending (needs existing decks)
 
 ---
 
 ### 10. Create Deck from Sidebar
 
-**Test file:** (part of `tests/09-sidebar-navigation.spec.js`)
-**Run:** `npx playwright test tests/09-sidebar-navigation.spec.js`
+**(Not yet automated)**
 
 **Steps:**
 1. Open sidebar
@@ -285,14 +309,11 @@ npm run test:ui
 - Sidebar closes
 - After create: new deck is selected
 
-**Test Results:**
-- 🚫 BLOCKED by Test 1 bug (panel doesn't close after deck creation)
-
 ---
 
 ### 11. Empty Deck State
 
-**Test file:** `tests/11-empty-deck.spec.js`
+**(Not yet automated)**
 
 **Precondition:** Deck has cards but none are due
 
@@ -302,14 +323,11 @@ npm run test:ui
 - "Next due: in X days"
 - "Show all cards" button visible
 
-**Test Results:**
-- 🚫 BLOCKED by Test 1 bug
-
 ---
 
 ### 12. Queue Ordering
 
-**Test file:** `tests/12-queue-ordering.spec.js`
+**(Not yet automated)**
 
 **Precondition:** Multiple cards due (some overdue, some never reviewed)
 
@@ -318,14 +336,11 @@ npm run test:ui
 - Never-reviewed cards appear after all overdue
 - Never-reviewed sorted by creation date (oldest first)
 
-**Test Results:**
-- 🚫 BLOCKED by Test 1 bug
-
 ---
 
 ### 13. Footer Tab Navigation
 
-**Test file:** `tests/13-footer-tabs.spec.js`
+**(Not yet automated)**
 
 **Precondition:** Multiple decks exist
 
@@ -337,14 +352,11 @@ npm run test:ui
 - Tab becomes active (highlighted)
 - Main content shows selected deck's cards/empty state
 
-**Test Results:**
-- 🚫 BLOCKED by Test 1 bug
-
 ---
 
 ### 14. Add Reflection
 
-**Test file:** `tests/03-review-flow.spec.js`
+**(Not yet automated)**
 
 **Steps:**
 1. With card showing, type in "Add reflection..." textarea
@@ -354,23 +366,22 @@ npm run test:ui
 - Reflection text is saved to card history
 - Text area clears after review
 
-**Test Results:**
-- 🚫 BLOCKED by Test 1 bug
-
 ---
 
-### 15. Theme Switcher
+### 15. Theme Switcher ✅ IMPLEMENTED
+
+**(Not yet automated)**
 
 **Steps:**
 1. Click 🎨 button in header
-2. Theme picker appears with 5 color swatches
+2. Theme picker appears with 6 color swatches
 3. Click a different theme (e.g., "ocean")
 4. UI updates to new colors immediately
 5. Close picker by clicking a theme or clicking elsewhere
 6. Refresh page
 
 **Expected:**
-- Theme picker shows 5 options: light, dark, ocean, forest, rose
+- Theme picker shows 6 options: light, dark, ocean, forest, rose, ember
 - Current theme has checkmark
 - Clicking theme applies it instantly
 - Theme persists after page refresh (saved to localStorage)
@@ -405,7 +416,7 @@ After tests, check Firebase Emulator UI at http://localhost:4000/firestore
 **Expected structure:**
 ```
 users/
-  demo-user/
+  (anonymous-uid)/
     decks/
       deck_123/
         name: "Test Deck"
@@ -417,11 +428,17 @@ users/
       card_456/
         deckId: "deck_123"
         content: "Test card content"
-        currentInterval: 3
-        lastReviewDate: "2025-12-28"
-        nextDueDate: "2025-12-31"
+        currentInterval: 2
+        lastReviewDate: null
+        nextDueDate: "2025-12-30"  ← scheduled for future!
         retired: false
         deleted: false
-        history: [...]
+        history: []
 ```
 
+---
+
+## Test Maintenance Notes
+
+**Card Scheduling Change (2025-12-28):**
+Cards are now correctly scheduled for `today + startingInterval` on creation. They don't appear for review until that date passes. Tests that need a card to be visible should create cards with `nextDueDate: today` directly via Firestore, or use a helper function.
