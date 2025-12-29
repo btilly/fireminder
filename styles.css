@@ -1113,6 +1113,70 @@ html, body {
   text-decoration: underline;
 }
 
+/* Past Reflections (inline on review screen) */
+.past-reflections {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.reflection-latest {
+  margin-bottom: var(--space-sm);
+}
+
+.reflection-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.reflection-icon {
+  font-size: 1rem;
+}
+
+.reflection-date {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.reflection-text {
+  font-style: italic;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.reflections-toggle {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  font-family: var(--font-body);
+}
+
+.reflections-toggle:hover {
+  text-decoration: underline;
+}
+
+.reflections-expanded {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.reflection-item {
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--border);
+}
+
 /* Transitions */
 .fade-enter-active,
 .fade-leave-active {
