@@ -39,147 +39,127 @@ await timeTravel(page, futureDate(2));
 
 ---
 
-## Test Files
+## Test Status
 
-### 1. `happy-path.spec.js`
-**The critical path.** Creates deck → creates card → time travels → reviews with intervals.
+**38 passing, 11 blocked** (as of Dec 28, 2025)
 
-| Test | What it covers |
-|------|----------------|
-| Complete user journey | Welcome → deck → card → time travel → interval controls → review |
-| Deck in sidebar/footer | Deck appears in both locations after creation |
-| Multiple cards queue | Queue count, card progression |
+| Test File | Status | Notes |
+|-----------|--------|-------|
+| `happy-path.spec.js` | ✅ 3/3 | Core user journey |
+| `card-actions.spec.js` | ✅ 6/6 | Rephrase, retire, delete |
+| `queue-priority.spec.js` | ⚠️ 3/4 | 1 test flaky on date edge |
+| `time-travel.spec.js` | ✅ 4/4 | Developer feature |
+| `smoke.spec.js` | ✅ 10/10 | Sidebar, theme, edge cases |
+| `settings-panel.spec.js` | ✅ 5/5 | Deck settings |
+| `move-to-deck.spec.js` | ✅ 4/4 | Move card between decks |
+| `view-history.spec.js` | ⚠️ 3/5 | 2 blocked on empty state text |
+| `skip-card.spec.js` | ❌ 0/4 | **BLOCKED** - click not working |
+| `all-cards-list.spec.js` | ❌ 0/4 | **BLOCKED** - click not working |
 
-### 2. `card-actions.spec.js`
-Card menu actions: rephrase, retire, delete.
+### Blocked Issues
 
-| Test | What it covers |
-|------|----------------|
-| Menu opens | ≡ hamburger shows all options |
-| Rephrase + save | Edit mode, Save Edit updates card text, returns to review (does NOT complete review) |
-| Rephrase + cancel | Cancel preserves original |
-| Retire | Card removed, never returns |
-| Delete + confirm | Permanent removal |
-| Delete + cancel | Card stays |
-
-### 3. `queue-priority.spec.js`
-Overdue cards appear first.
-
-| Test | What it covers |
-|------|----------------|
-| Overdue first | More overdue cards appear before less overdue |
-| Queue count | Decrements correctly as cards reviewed |
-
-### 4. `time-travel.spec.js`
-Developer feature for testing/demos.
-
-| Test | What it covers |
-|------|----------------|
-| Banner appears | Shows simulated date |
-| Sidebar shows date | TODAY box reflects simulation |
-| Back to today | Clears simulation |
-| Any date works | Can travel to 2030 |
-
-### 5. `smoke.spec.js`
-Quick sanity checks: sidebar, theme, sign out, edge cases.
-
-| Test | What it covers |
-|------|----------------|
-| Sidebar open/close | Hamburger, overlay, X button |
-| Deck switching | Click deck in sidebar |
-| Theme change | 6 themes, persists after refresh |
-| Sign out | Returns to sign-in screen |
-| Empty deck name | Rejected (panel stays open) |
-| Escape closes panel | Keyboard shortcut |
-| Unicode deck names | 日本語 works |
-
-### 6. `view-history.spec.js`
-Card history panel (full takeover).
-
-| Test | What it covers |
-|------|----------------|
-| Open from menu | ≡ → "View history" opens panel |
-| Current content shown | CURRENT section displays card text |
-| Empty state | "No history yet" for unreviewed cards |
-| History entries | Shows date, interval, reflection for each review |
-| Previous content shown | If card was rephrased, shows diff |
-| Close panel | ✕ returns to review screen |
-
-### 7. `all-cards-list.spec.js`
-All cards view from empty deck screen.
-
-| Test | What it covers |
-|------|----------------|
-| Show all cards button | Visible on empty deck screen |
-| Lists active cards | Shows card content, due date |
-| Lists retired cards | Separate section, grayed out |
-| Tap opens detail | Clicking card opens Card Detail view |
-| Due date formatting | "in 3 days", "tomorrow", "overdue by 2 days" |
-| Empty state | "No cards yet" for empty deck |
-| Close panel | ✕ returns to deck screen |
-
-### 8. `card-detail.spec.js`
-Card detail view from All Cards list.
-
-| Test | What it covers |
-|------|----------------|
-| Shows full content | Card text displayed prominently |
-| Shows current interval | "Current interval: X days" |
-| Shows next due date | "Next due: Jan 3, 2025" |
-| History section | Expandable list of past reviews |
-| Edit from detail | Can enter edit mode |
-| Retire from detail | Can retire card |
-| Delete from detail | Can delete card |
-| Close panel | ✕ returns to All Cards list |
-
-### 9. `interval-controls.spec.js`
-Interval button styling and behavior.
-
-| Test | What it covers |
-|------|----------------|
-| Default interval styled | Middle badge has accent border |
-| Shorter button hover | Blue tint on hover |
-| Longer button hover | Orange tint on hover |
-| Click Shorter | Button highlighted blue, interval updates |
-| Click Longer | Button highlighted orange, interval updates |
-| Toggle off | Clicking same button returns to default |
+1. **"Show all cards" button** - Click fires but panel doesn't open. Vue reactivity issue?
+2. **Skip card menu item** - Same issue - click happens, no effect.
+3. **View history empty state** - Looking for wrong text pattern.
 
 ---
 
-### 10. `settings-panel.spec.js`
+## Test Files
+
+### 1. `happy-path.spec.js` ✅
+**The critical path.** Creates deck → creates card → time travels → reviews with intervals.
+
+| Test | Status |
+|------|--------|
+| Complete user journey | ✅ |
+| Deck in sidebar/footer | ✅ |
+| Multiple cards queue | ✅ |
+
+### 2. `card-actions.spec.js` ✅
+Card menu actions: rephrase, retire, delete.
+
+| Test | Status |
+|------|--------|
+| Menu opens | ✅ |
+| Rephrase + save | ✅ |
+| Rephrase + cancel | ✅ |
+| Retire | ✅ |
+| Delete + confirm | ✅ |
+| Delete + cancel | ✅ |
+
+### 3. `queue-priority.spec.js` ⚠️
+Time travel and queue behavior.
+
+| Test | Status |
+|------|--------|
+| Cards not due are hidden | ✅ |
+| Queue count decrements | ✅ |
+| Card due after interval | ✅ |
+| Hardcoded date test | ⚠️ Flaky |
+
+### 4. `time-travel.spec.js` ✅
+Developer feature for testing/demos.
+
+| Test | Status |
+|------|--------|
+| Banner appears | ✅ |
+| Sidebar shows controls | ✅ |
+| Back to today | ✅ |
+| Any date works | ✅ |
+
+### 5. `smoke.spec.js` ✅
+Quick sanity checks: sidebar, theme, sign out, edge cases.
+
+| Test | Status |
+|------|--------|
+| Sidebar open/close | ✅ |
+| X button closes sidebar | ✅ |
+| My Decks section | ✅ |
+| Deck switching | ✅ |
+| Theme change | ✅ |
+| Theme persists | ✅ |
+| Sign out | ✅ |
+| Empty deck name rejected | ✅ |
+| Panel close via X | ✅ |
+| Unicode deck names | ✅ |
+
+### 6. `view-history.spec.js` ⚠️
+Card history panel.
+
+| Test | Status |
+|------|--------|
+| Open from menu | ✅ |
+| Shows current content | ✅ |
+| Empty history message | ❌ Wrong text pattern |
+| History after review | ❌ Wrong selector |
+| Close button | ✅ |
+
+### 7. `all-cards-list.spec.js` ❌ BLOCKED
+All cards view. **Button click not triggering panel.**
+
+### 8. `settings-panel.spec.js` ✅
 Deck settings screen.
 
-| Test | What it covers |
-|------|----------------|
-| Open from deck screen | ⚙ Settings button opens panel |
-| Edit deck name | Name updates in sidebar, header, footer |
-| Edit starting interval | New cards use new interval |
-| Edit queue limit | Limits cards shown per day |
-| Delete deck | Confirmation, removes deck + cards |
-| Cancel | ✕ closes without saving |
+| Test | Status |
+|------|--------|
+| Opens panel | ✅ |
+| Edit deck name | ✅ |
+| Edit starting interval | ✅ |
+| Delete deck | ✅ |
+| Cancel closes | ✅ |
 
-### 11. `move-to-deck.spec.js`
+### 9. `move-to-deck.spec.js` ✅
 Card reassignment modal.
 
-| Test | What it covers |
-|------|----------------|
-| Open from menu | ≡ → "Move to deck..." opens modal |
-| Open from detail | Button in Card Detail view |
-| Current deck disabled | Can't select same deck |
-| Move updates card | Card appears in new deck |
-| Modal closes | After move or cancel |
+| Test | Status |
+|------|--------|
+| Opens modal from menu | ✅ |
+| Current deck disabled | ✅ |
+| Move updates card | ✅ |
+| Cancel closes modal | ✅ |
 
-### 12. `skip-card.spec.js`
-Skip and undo functionality.
-
-| Test | What it covers |
-|------|----------------|
-| Skip from menu | ≡ → "Skip (review later)" |
-| Card hidden | Skipped card not in queue |
-| Toast appears | "Skipped. Will show again later today." |
-| Toast auto-dismisses | Gone after 3 seconds |
-| Undo works | Card returns to queue |
-| Undo clears toast | Toast disappears on undo |
+### 10. `skip-card.spec.js` ❌ BLOCKED
+Skip and undo. **Menu click not triggering skip.**
 
 ---
 
