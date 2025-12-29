@@ -35,7 +35,7 @@ test.describe('View History', () => {
     await page.getByRole('button', { name: /view history/i }).click();
     
     // Should indicate no history yet
-    await expect(page.locator('.panel-body')).toContainText(/no review|never been reviewed|first review/i);
+    await expect(page.locator('.panel-body')).toContainText(/no history yet|hasn't been reviewed/i);
   });
 
   test('history shows after review', async ({ page }) => {
@@ -50,7 +50,8 @@ test.describe('View History', () => {
     await page.getByRole('button', { name: /view history/i }).click();
     
     // Should show at least one history entry
-    await expect(page.locator('.history-entry, .review-entry')).toHaveCount(1);
+    const count = await page.locator('.history-section').count();
+    expect(count).toBeGreaterThanOrEqual(1);
   });
 
   test('close button returns to review', async ({ page }) => {

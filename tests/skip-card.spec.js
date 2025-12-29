@@ -18,7 +18,7 @@ test.describe('Skip Card', () => {
     
     // Open menu and skip
     await page.locator('.menu-btn').click();
-    await page.getByRole('button', { name: /skip/i }).click();
+    await page.getByRole('button', { name: 'Skip (review later)' }).click();
     
     // Card should be hidden (shows empty state since only 1 card)
     await expect(page.getByText(/all caught up/i)).toBeVisible();
@@ -26,7 +26,7 @@ test.describe('Skip Card', () => {
 
   test('toast appears after skip', async ({ page }) => {
     await page.locator('.menu-btn').click();
-    await page.getByRole('button', { name: /skip/i }).click();
+    await page.getByRole('button', { name: 'Skip (review later)' }).click();
     
     // Toast should be visible
     await expect(page.locator('.skip-toast')).toBeVisible();
@@ -35,7 +35,7 @@ test.describe('Skip Card', () => {
 
   test('toast auto-dismisses after 3 seconds', async ({ page }) => {
     await page.locator('.menu-btn').click();
-    await page.getByRole('button', { name: /skip/i }).click();
+    await page.getByRole('button', { name: 'Skip (review later)' }).click();
     
     // Toast visible
     await expect(page.locator('.skip-toast')).toBeVisible();
@@ -49,7 +49,7 @@ test.describe('Skip Card', () => {
 
   test('undo restores card to queue', async ({ page }) => {
     await page.locator('.menu-btn').click();
-    await page.getByRole('button', { name: /skip/i }).click();
+    await page.getByRole('button', { name: 'Skip (review later)' }).click();
     
     // Card is hidden
     await expect(page.getByText(/all caught up/i)).toBeVisible();
