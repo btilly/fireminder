@@ -27,8 +27,6 @@ test.describe('First-Time User Flow', () => {
     
     // Fill form
     await page.locator('.form-input').first().fill(uniqueName('TestDeck'));
-    await page.locator('.form-input').nth(1).clear();
-    await page.locator('.form-input').nth(1).fill('📝');
     
     // Create (use exact match for panel action button)
     await page.locator('.panel-action').click();

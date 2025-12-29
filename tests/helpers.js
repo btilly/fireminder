@@ -27,7 +27,7 @@ export async function freshStart(page) {
 /**
  * Create a deck via the UI
  */
-export async function createDeck(page, { name, emoji = '📝', interval = 2 }) {
+export async function createDeck(page, { name, interval = 2 }) {
   // Look for "Create Deck" button (empty state) or "+ New Deck" in sidebar
   const createBtn = page.getByRole('button', { name: /create deck/i });
   const hasCreateBtn = await createBtn.isVisible().catch(() => false);
@@ -42,14 +42,11 @@ export async function createDeck(page, { name, emoji = '📝', interval = 2 }) {
   
   // Fill the form
   await page.locator('.form-input').first().fill(name);
-  if (emoji) {
-    await page.locator('.form-input').nth(1).fill(emoji);
-  }
   
   // Create (use panel action button)
   await page.locator('.panel-action').click();
   
-  // Wait for panel to close (known bug - may need fix)
+  // Wait for panel to close
   await page.waitForTimeout(500);
 }
 

@@ -65,13 +65,13 @@ test.describe('Edge Cases', () => {
     await expect(page.locator('.header-title')).toContainText('Test');
   });
 
-  test('emoji-only deck name', async ({ page }) => {
+  test('unicode characters in deck name', async ({ page }) => {
     await page.getByRole('button', { name: /create deck/i }).click();
-    await page.locator('.form-input').first().fill('🔥🧠💡');
+    await page.locator('.form-input').first().fill('日本語テスト');
     await page.locator('.panel-action').click();
     
-    // Should work
-    await expect(page.locator('.header-title')).toContainText('🔥🧠💡');
+    // Should work with unicode
+    await expect(page.locator('.header-title')).toContainText('日本語テスト');
   });
 
   test('rapid clicking on Review Done', async ({ page }) => {

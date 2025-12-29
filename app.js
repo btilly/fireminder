@@ -10,7 +10,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   connectFirestoreEmulator 
 } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 import { 
@@ -151,7 +150,6 @@ createApp({
     const newCardContent = ref('');
     const newCardDeckId = ref(null);
     const newDeckName = ref('');
-    const newDeckEmoji = ref('📚');
     const newDeckInterval = ref(2);
     const newDeckLimit = ref(null); // null = unlimited
     const reflectionText = ref('');
@@ -245,7 +243,7 @@ createApp({
       const retired = deckCards.filter(c => c.retired).length;
       
       // Find next due card
-      const today = formatDate(new Date());
+      const today = effectiveToday.value;
       const futureCards = deckCards
         .filter(c => !c.retired && !c.deleted && c.nextDueDate > today)
         .sort((a, b) => new Date(a.nextDueDate) - new Date(b.nextDueDate));
@@ -330,7 +328,6 @@ createApp({
       const deckId = `deck_${Date.now()}`;
       const deck = {
         name: newDeckName.value.trim(),
-        emoji: newDeckEmoji.value,
         startingInterval: newDeckInterval.value,
         queueLimit: newDeckLimit.value,
         createdAt: new Date().toISOString(),
@@ -339,7 +336,6 @@ createApp({
       // Close panel immediately for better UX
       const deckName = newDeckName.value;
       newDeckName.value = '';
-      newDeckEmoji.value = '📚';
       newDeckInterval.value = 2;
       newDeckLimit.value = null;
       showNewDeck.value = false;
@@ -596,7 +592,6 @@ createApp({
       newCardContent,
       newCardDeckId,
       newDeckName,
-      newDeckEmoji,
       newDeckInterval,
       newDeckLimit,
       
@@ -659,7 +654,7 @@ createApp({
               :class="{ active: deck.id === currentDeckId }"
               @click="selectDeck(deck.id)"
             >
-              <span class="deck-name">{{ deck.emoji }} {{ deck.name }}</span>
+              <span class="deck-name">{{ deck.name }}</span>
               <span class="deck-count">{{ cards.filter(c => c.deckId === deck.id && !c.retired && !c.deleted).length }}</span>
             </li>
           </ul>
@@ -711,7 +706,7 @@ createApp({
       <header class="header">
         <div class="header-left">
           <button class="icon-btn" @click="showSidebar = true">≡</button>
-          <span class="header-title" v-if="currentDeck">{{ currentDeck.emoji }} {{ currentDeck.name }}</span>
+          <span class="header-title" v-if="currentDeck">{{ currentDeck.name }}</span>
           <span class="header-title" v-else>Fireminder</span>
         </div>
         <div class="header-right">
@@ -838,7 +833,7 @@ createApp({
           :class="{ active: deck.id === currentDeckId }"
           @click="currentDeckId = deck.id"
         >
-          {{ deck.emoji }} {{ deck.name }}
+          {{ deck.name }}
         </button>
         <button class="tab" v-if="decks.length > 3">🌍 All</button>
       </footer>
@@ -863,7 +858,7 @@ createApp({
             <label class="form-label">Deck</label>
             <select class="form-select" v-model="newCardDeckId">
               <option v-for="deck in decks" :key="deck.id" :value="deck.id">
-                {{ deck.emoji }} {{ deck.name }}
+                {{ deck.name }}
               </option>
             </select>
           </div>
@@ -885,15 +880,6 @@ createApp({
               class="form-input" 
               placeholder="e.g. Stoic Quotes"
               v-model="newDeckName"
-            >
-          </div>
-          <div class="form-group">
-            <label class="form-label">Emoji</label>
-            <input 
-              type="text" 
-              class="form-input" 
-              style="width: 80px;"
-              v-model="newDeckEmoji"
             >
           </div>
           <div class="form-group">
