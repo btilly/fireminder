@@ -1,18 +1,54 @@
 # Fireminder Test Cases
 
-## Current Test Status (2025-12-28)
+## Time Travel: The Key to Testing
 
-**Summary:** 9 passing, 18 failing
+**Cards don't appear immediately after creation.** They're scheduled for `today + startingInterval` (default 2 days). To see cards for review, use **Time Travel**.
 
-| Test File | Status | Notes |
-|-----------|--------|-------|
-| 01-first-time-user.spec.js | ✅ 3/3 passing | Works |
-| 02-create-card.spec.js | ⚠️ 2/4 passing | 2 fail due to card scheduling change |
-| 03-review-flow.spec.js | ❌ 0/8 passing | All fail - no cards available (scheduled for future) |
-| 05-card-actions.spec.js | ❌ 0/8 passing | All fail - no cards available |
-| 09-sidebar-navigation.spec.js | ✅ 4/4 passing | Works |
+### Time Travel Demo Story 🕐
 
-**Root cause of failures:** Cards are now correctly scheduled for `today + startingInterval` (per Kate's feedback). Tests expected immediate appearance. Tests need updating.
+This story demonstrates the full user journey using time travel:
+
+```
+Day 1 (Today - Dec 29, 2025):
+├── Create deck "Stoic Quotes" with 2-day starting interval
+├── Add card "The obstacle is the way"
+├── Add card "Memento mori"
+└── Status: "All caught up" (cards scheduled for Day 3)
+
+Day 3 (Time travel → Dec 31, 2025):
+├── Both cards now appear for review
+├── Review first card, select "Longer [3]" → scheduled for Day 6
+├── Review second card, default interval → scheduled for Day 6
+└── Status: "All caught up"
+
+Day 6 (Time travel → Jan 3, 2026):
+├── Both cards appear again
+├── First card: interval now shows [2] Shorter | 5 days | Longer [5]
+├── Add new card "Amor fati" (will be due Day 8)
+└── Review both cards
+
+Day 8 (Time travel → Jan 5, 2026):
+├── "Amor fati" appears (first review)
+├── Other cards not yet due (scheduled for Day 11+)
+└── This demonstrates queue priority: new cards appear after overdue
+```
+
+### How to Use Time Travel in Tests
+
+```javascript
+// 1. Open sidebar
+await page.click('button:has-text("≡")');
+
+// 2. Set simulated date
+await page.fill('input[type="date"]', '2026-01-05');
+await page.press('input[type="date"]', 'Tab');
+
+// 3. Verify date changed
+await expect(page.locator('.time-travel-banner')).toContainText('2026-01-05');
+
+// 4. Close sidebar (optional)
+await page.click('button:has-text("✕")');
+```
 
 ---
 
@@ -24,421 +60,322 @@ cd ~/code/fireminder
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 firebase emulators:start --project demo-fireminder
 
-# Terminal 2: Serve the app
+# Terminal 2: Serve the app (or let Playwright do it)
 cd ~/code/fireminder
 python3 -m http.server 3000
 ```
 
 **Test against:** http://localhost:3000
 
-**Note:** In emulator mode, the app auto-signs in anonymously - no Google OAuth required.
+**Note:** In emulator mode, the app auto-signs in anonymously.
 
 ---
 
 ## Running Automated Tests
 
 ```bash
-# First time only: install Playwright
+# Install (first time)
 cd ~/code/fireminder
 npm install
 npx playwright install chromium
 
-# Run specific test file (recommended)
+# Run specific test
 npx playwright test tests/01-first-time-user.spec.js
 
-# Run all tests (takes ~7 minutes, ask Kate first!)
+# Run all tests (slow - ask Kate first!)
 npm test
 
-# Run tests with browser visible (debugging)
+# Run with visible browser
 npm run test:headed
-
-# Run with Playwright UI (interactive)
-npm run test:ui
 ```
-
-**Prerequisites:**
-- Firebase emulators running (Terminal 1)
-- Tests auto-start the web server via playwright.config.js
 
 ---
 
 ## User Flows to Test
 
-### 1. First-Time User Flow ✅ PASSING
+### 1. First-Time User Flow ✅
 
-**Test file:** `tests/01-first-time-user.spec.js`
-**Run:** `npx playwright test tests/01-first-time-user.spec.js`
-
-**Precondition:** No decks exist
+**Uses time travel:** No (just deck creation)
 
 **Steps:**
-1. Load app
-2. Should see "Welcome! Create your first deck" message
-3. Click "Create Deck"
-4. Fill in: Name="Test Deck", Emoji="📝", Starting interval=2
-5. Click "Create"
+1. Load app → see "Welcome! Create your first deck"
+2. Click "Create Deck"
+3. Fill: Name="Test Deck", Starting interval=2
+4. Click "Create"
 
 **Expected:**
-- New Deck panel opens on button click
-- Deck is created and selected
-- User sees empty deck state ("All caught up")
-- Deck appears in sidebar and footer tabs
-
-**Test Results:**
-- ✅ Welcome message displays correctly
-- ✅ Panel closes after clicking Create
-- ✅ Deck is created and selected
-- ✅ Empty deck state shows correctly
-- ✅ Deck appears in sidebar and footer tabs
-
-**Bugs Fixed:**
-- Panel not closing after Create (moved close to before async operation)
-- Missing `cards` in Vue return statement (caused render error)
+- Panel closes
+- Deck created and selected
+- Empty state shows ("All caught up")
+- "Next due: in 2 days"
 
 ---
 
-### 2. Create Card Flow ⚠️ PARTIAL
+### 2. Create Card Flow ✅
 
-**Test file:** `tests/02-create-card.spec.js`
-**Run:** `npx playwright test tests/02-create-card.spec.js`
-
-**Precondition:** At least one deck exists
+**Uses time travel:** No (verifying scheduling, not review)
 
 **Steps:**
 1. Click [+] in header
-2. Add Card panel should open (full takeover, no footer visible)
-3. Enter text: "Test card content"
-4. Select deck from dropdown
+2. Add Card panel opens (full takeover)
+3. Enter "Test card content"
+4. Select deck
 5. Click "Save"
 
 **Expected:**
 - Panel closes
-- Card is created (but NOT visible immediately - scheduled for future)
-- Empty deck state shows ("All caught up")
-
-**Test Results:**
-- ✅ Panel opens on + click
-- ✅ Footer hidden (full takeover)
-- ✅ Deck selection works
-- ❌ Tests expecting immediate card appearance fail (correct behavior now)
-
-**Bugs Fixed:**
-- Footer visible when panel open (added v-if to hide footer during panel)
-
-**Design Change:**
-- Cards are now scheduled for `today + startingInterval`
-- They don't appear immediately - this is correct per spec
-- Tests need updating to reflect this
+- Returns to previous screen (review card or empty state)
+- Card count increments in sidebar
+- Card is NOT visible for review yet (scheduled for future)
+- "Next due: in 2 days" shows in empty state
 
 ---
 
-### 3. Basic Review Flow ❌ TESTS NEED UPDATE
+### 3. Basic Review Flow 🕐
 
-**Test file:** `tests/03-review-flow.spec.js`
-**Run:** `npx playwright test tests/03-review-flow.spec.js`
+**Uses time travel:** YES
 
-**Precondition:** Deck has at least one card DUE (not just created)
+**Setup:**
+1. Create deck with 2-day interval
+2. Create card
+3. Time travel 2 days forward
 
 **Steps:**
-1. View card content
-2. (Optional) Enter reflection text
+1. Card appears for review
+2. Enter optional reflection
 3. Click "✓ Review Done"
 
 **Expected:**
 - Card disappears from queue
-- Next card appears (or empty state if no more)
-- Queue count decrements ("X more today")
-- Card's nextDueDate is set to today + interval
-
-**Test Results:**
-- ❌ All 8 tests fail - no cards available (correctly scheduled for future)
-- Tests need to create cards with `nextDueDate: today` to simulate due cards
+- Shows next card or empty state
+- "X more today" decrements
 
 ---
 
-### 4. Interval Controls ❌ TESTS NEED UPDATE
+### 4. Interval Controls 🕐
 
-**Test file:** `tests/03-review-flow.spec.js`
+**Uses time travel:** YES
 
-**Precondition:** Card is showing for review
+**Setup:** Time travel to have a card visible
 
 **Steps:**
-1. Note current interval (e.g., "8 days")
-2. Click "Shorter" button
-3. Verify interval display updates (e.g., "5 days")
-4. Click "Shorter" again to deselect
-5. Verify returns to default
-6. Click "Longer" button
-7. Verify interval increases (e.g., "13 days")
+1. Note current interval (e.g., "3 days")
+2. Click "[2] Shorter" → interval shows "2 days"
+3. Click "Longer [5]" → interval shows "5 days"
+4. Complete review
 
 **Expected:**
-- Buttons toggle on/off
-- Interval display reflects selection
-- Fibonacci sequence is correct: 1, 2, 3, 5, 8, 13, 21...
-
-**Test Results:**
-- ❌ All tests timeout - no card visible to test interval controls
+- Buttons toggle selection
+- Middle display shows selected interval
+- Fibonacci sequence: 1, 2, 3, 5, 8, 13, 21...
+- Review uses selected interval for next due date
 
 ---
 
-### 5. Rephrase Card (Inline Edit) ❌ TESTS NEED UPDATE
+### 5. Rephrase Card (Inline Edit) 🕐
 
-**Test file:** `tests/05-card-actions.spec.js`
+**Uses time travel:** YES
 
-**Precondition:** Card is showing for review
+**Setup:** Time travel to have a card visible
 
 **Steps:**
 1. Click ••• menu
 2. Click "Rephrase card"
-3. Card content becomes editable
-4. Modify the text
-5. Click "Save Edit"
+3. Modify text
+4. Click "Save Edit"
 
 **Expected:**
-- ••• menu closes
-- Card enters edit mode (shows "✎ EDITING" indicator)
-- Cancel/Save buttons replace Review Done
-- After save: card shows new content
-- Review is also completed (card leaves queue)
+- Card enters edit mode ("✎ EDITING")
+- Save returns to review screen with new text
+- Review is NOT completed (user must still click Review Done)
 
-**Test Results:**
-- ❌ All tests timeout - waiting for `.menu-btn` which doesn't exist (no card visible)
+**Known Bug:** Currently Save Edit also completes review. Fix needed.
 
 ---
 
-### 6. Cancel Edit ❌ TESTS NEED UPDATE
+### 6. Retire Card 🕐
 
-**Test file:** `tests/05-card-actions.spec.js`
+**Uses time travel:** YES
 
-**Precondition:** Card is in edit mode
-
-**Steps:**
-1. Click "Cancel"
-
-**Expected:**
-- Edit mode exits
-- Original content restored
-- Review buttons return
-
-**Test Results:**
-- ❌ Blocked - no card visible
-
----
-
-### 7. Retire Card ❌ TESTS NEED UPDATE
-
-**Test file:** `tests/05-card-actions.spec.js`
-
-**Precondition:** Card is showing for review
+**Setup:** Time travel to have a card visible
 
 **Steps:**
 1. Click ••• menu
 2. Click "Retire"
 
 **Expected:**
-- Card disappears from queue
-- Card never appears again
-- Stats show incremented "retired" count
-
-**Test Results:**
-- ❌ Blocked - no card visible
+- Card disappears immediately
+- Never appears again
+- "Retired" count increments in stats
 
 ---
 
-### 8. Delete Card ❌ TESTS NEED UPDATE
+### 7. Delete Card 🕐
 
-**Test file:** `tests/05-card-actions.spec.js`
+**Uses time travel:** YES
 
-**Precondition:** Card is showing for review
+**Setup:** Time travel to have a card visible
 
 **Steps:**
 1. Click ••• menu
 2. Click "Delete..."
-3. Confirmation dialog appears
-4. Confirm deletion
+3. Confirm in dialog
 
 **Expected:**
-- Confirmation prompt shown
-- Card is permanently removed
-- Card does NOT appear in retired count
-
-**Test Results:**
-- ❌ Blocked - no card visible
+- Card permanently removed
+- Does NOT count as retired
 
 ---
 
-### 9. Sidebar Navigation ✅ PASSING
+### 8. Sidebar Navigation ✅
 
-**Test file:** `tests/09-sidebar-navigation.spec.js`
-**Run:** `npx playwright test tests/09-sidebar-navigation.spec.js`
+**Uses time travel:** No
 
 **Steps:**
-1. Click ≡ (hamburger) in header
-2. Sidebar slides in
-3. View deck list with card counts
-4. Click different deck
-5. Sidebar closes
+1. Click ≡ (hamburger)
+2. Sidebar opens
+3. View deck list
+4. Click deck → switches view
+5. Click overlay or ✕ → closes
 
 **Expected:**
-- Sidebar opens from left
-- Overlay dims background
-- Clicking overlay closes sidebar
-- Clicking deck selects it and closes sidebar
-- Main view updates to show selected deck's cards
-
-**Test Results:**
-- ✅ Hamburger menu opens sidebar
-- ✅ Sidebar shows "My Decks" section and "+ New Deck" button
-- ✅ Clicking overlay closes sidebar
-- ✅ Clicking X closes sidebar
+- Sidebar slides from left
+- Shows decks with card counts
+- Today's date displayed at top
+- Theme picker and Time Travel in "Developer" section
+- Sign Out at bottom
 
 ---
 
-### 10. Create Deck from Sidebar
+### 9. Queue Priority 🕐
 
-**(Not yet automated)**
+**Uses time travel:** YES (critical)
+
+**Setup:**
+1. Create 2 cards on Day 1
+2. Time travel to Day 3 (both due)
+3. DON'T review one card
+4. Time travel to Day 5
+
+**Expected:**
+- Overdue card appears FIRST
+- Never-reviewed cards come after overdue
+- "X more today" shows correct count
+
+---
+
+### 10. Adding Cards Mid-Review 🕐
+
+**Uses time travel:** YES
+
+**Setup:** Time travel to have a card visible
+
+**Steps:**
+1. Card showing for review
+2. Click [+] to add new card
+3. Enter content, save
+
+**Expected:**
+- Returns to SAME review screen (not the new card)
+- Review state preserved
+- New card scheduled for future
+- Can continue reviewing current card
+
+---
+
+### 11. Time Travel Itself ✅
+
+**Uses time travel:** This IS the test
 
 **Steps:**
 1. Open sidebar
-2. Click "+ New Deck"
-3. Fill form
-4. Click "Create"
+2. Note today's date in "TODAY" box
+3. Enter future date in Time Travel input
+4. Press Tab or click away
 
 **Expected:**
-- New Deck panel opens
-- Sidebar closes
-- After create: new deck is selected
+- Orange banner appears: "🕐 Simulating: YYYY-MM-DD"
+- "← Back to today" button visible
+- TODAY box shows simulated date + "Simulated" label
+- Cards due on that date appear for review
+- Reset button clears simulation
 
 ---
 
-### 11. Empty Deck State
+### 12. Theme Switcher ✅
 
-**(Not yet automated)**
-
-**Precondition:** Deck has cards but none are due
-
-**Expected display:**
-- "Status: All caught up ✓"
-- Stats: X active cards, X retired
-- "Next due: in X days"
-- "Show all cards" button visible
-
----
-
-### 12. Queue Ordering
-
-**(Not yet automated)**
-
-**Precondition:** Multiple cards due (some overdue, some never reviewed)
-
-**Expected:**
-- Overdue cards appear first (sorted by overdue ratio)
-- Never-reviewed cards appear after all overdue
-- Never-reviewed sorted by creation date (oldest first)
-
----
-
-### 13. Footer Tab Navigation
-
-**(Not yet automated)**
-
-**Precondition:** Multiple decks exist
+**Uses time travel:** No
 
 **Steps:**
-1. Click deck tab in footer
-2. View updates to show that deck
+1. Open sidebar
+2. Click theme swatch in Developer section
+3. UI updates immediately
+4. Refresh page
 
 **Expected:**
-- Tab becomes active (highlighted)
-- Main content shows selected deck's cards/empty state
+- 6 themes: light, dark, ocean, forest, rose, ember
+- Active theme has checkmark
+- Persists after refresh (localStorage)
 
 ---
 
-### 14. Add Reflection
+### 13. Sign Out ✅
 
-**(Not yet automated)**
+**Uses time travel:** No
 
 **Steps:**
-1. With card showing, type in "Add reflection..." textarea
-2. Complete review
+1. Open sidebar
+2. Click "Sign Out"
 
 **Expected:**
-- Reflection text is saved to card history
-- Text area clears after review
+- Returns to sign-in screen
+- All data cleared from view
+- Must sign in again to see decks
 
 ---
 
-### 15. Theme Switcher ✅ IMPLEMENTED
-
-**(Not yet automated)**
-
-**Steps:**
-1. Click 🎨 button in header
-2. Theme picker appears with 6 color swatches
-3. Click a different theme (e.g., "ocean")
-4. UI updates to new colors immediately
-5. Close picker by clicking a theme or clicking elsewhere
-6. Refresh page
-
-**Expected:**
-- Theme picker shows 6 options: light, dark, ocean, forest, rose, ember
-- Current theme has checkmark
-- Clicking theme applies it instantly
-- Theme persists after page refresh (saved to localStorage)
-- Default theme is "light"
-
-**Themes available:**
-- `light` - warm paper, blue accent
-- `dark` - soft dark gray, teal accent  
-- `ocean` - deep navy, aqua accent
-- `forest` - deep green, sage accent
-- `rose` - soft pink, magenta accent
-- `ember` - the OG, black & orange 🔥
-
----
-
-## Not Yet Implemented (Skip These)
+## Not Yet Implemented
 
 - View history (drawer)
 - Skip (review later)
 - Move to deck
-- Settings (⚙️)
 - "Show all cards" button
 - Cross-deck "All" view
 - Google OAuth (use emulator auto-login)
 
 ---
 
-## Data Verification
+## Known Bugs to Fix
 
-After tests, check Firebase Emulator UI at http://localhost:4000/firestore
+1. **Save Edit completes review** - Should only save text, return to review
+2. **Edit should be overlay** - Not replace review screen
+3. **"3 days" not styled as selected** - Default interval needs visual indicator
+4. **Reflections saved but not displayed** - Need history view
+5. **••• should be ≡** - More noticeable menu icon
+6. **Color-code interval buttons** - Shorter/Longer should use different accent colors
 
-**Expected structure:**
+---
+
+## Data Structure
+
 ```
 users/
-  (anonymous-uid)/
+  (uid)/
     decks/
       deck_123/
-        name: "Test Deck"
-        emoji: "📝"
+        name: "Stoic Quotes"
         startingInterval: 2
         queueLimit: null
-        createdAt: "2025-..."
+        createdAt: "2026-01-03T..."  ← uses simulated date
     cards/
       card_456/
         deckId: "deck_123"
-        content: "Test card content"
+        content: "The obstacle is the way"
         currentInterval: 2
+        createdAt: "2026-01-03T..."  ← uses simulated date
         lastReviewDate: null
-        nextDueDate: "2025-12-30"  ← scheduled for future!
+        nextDueDate: "2026-01-05"
         retired: false
         deleted: false
         history: []
 ```
-
----
-
-## Test Maintenance Notes
-
-**Card Scheduling Change (2025-12-28):**
-Cards are now correctly scheduled for `today + startingInterval` on creation. They don't appear for review until that date passes. Tests that need a card to be visible should create cards with `nextDueDate: today` directly via Firestore, or use a helper function.

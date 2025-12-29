@@ -330,7 +330,7 @@ createApp({
         name: newDeckName.value.trim(),
         startingInterval: newDeckInterval.value,
         queueLimit: newDeckLimit.value,
-        createdAt: new Date().toISOString(),
+        createdAt: getToday().toISOString(),
       };
       
       // Close panel immediately for better UX
@@ -373,7 +373,7 @@ createApp({
         deckId: deckId,
         content: newCardContent.value.trim(),
         currentInterval: startingInterval,
-        createdAt: new Date().toISOString(),
+        createdAt: getToday().toISOString(),
         lastReviewDate: null,
         nextDueDate: formatDate(firstDueDate), // First review after starting interval
         retired: false,
@@ -662,8 +662,8 @@ createApp({
             + New Deck
           </button>
           
-          <!-- Settings Section -->
-          <div class="sidebar-section-title" style="margin-top: var(--space-lg);">Settings</div>
+          <!-- Developer Section -->
+          <div class="sidebar-section-title" style="margin-top: var(--space-lg);">Developer</div>
           
           <!-- Time Travel -->
           <div class="sidebar-setting">
