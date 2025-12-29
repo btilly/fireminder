@@ -189,6 +189,8 @@ createApp({
     
     // Form state
     const newCardContent = ref('');
+    const newCardReminder = ref(''); // Optional reminder for scheduled cards
+    const newCardScheduleDate = ref(''); // Optional: when card should first appear
     const newCardDeckId = ref(null);
     const newDeckName = ref('');
     const newDeckInterval = ref(2);
@@ -295,18 +297,23 @@ createApp({
       const active = deckCards.filter(c => !c.retired && !c.deleted).length;
       const retired = deckCards.filter(c => c.retired).length;
       
-      // Find next due card
+      // Find next due card and scheduled cards
       const today = effectiveToday.value;
       const futureCards = deckCards
         .filter(c => !c.retired && !c.deleted && c.nextDueDate > today)
         .sort((a, b) => new Date(a.nextDueDate) - new Date(b.nextDueDate));
+      
+      // Scheduled = never reviewed and due date > today
+      const scheduled = deckCards.filter(c => 
+        !c.retired && !c.deleted && !c.lastReviewDate && c.nextDueDate > today
+      ).length;
       
       let nextDueIn = null;
       if (futureCards.length > 0) {
         nextDueIn = daysBetween(today, futureCards[0].nextDueDate);
       }
       
-      return { active, retired, nextDueIn };
+      return { active, retired, scheduled, nextDueIn };
     });
 
     // --- Auth ---
@@ -423,16 +430,27 @@ createApp({
       const cardId = `card_${Date.now()}`;
       
       const startingInterval = deck?.startingInterval || 2;
-      const firstDueDate = addDays(getToday(), startingInterval);
+      const today = getToday();
+      
+      // If scheduled for a specific date, use that; otherwise use normal scheduling
+      let firstDueDate;
+      if (newCardScheduleDate.value) {
+        // Schedule for specific date
+        firstDueDate = parseLocalDate(newCardScheduleDate.value);
+      } else {
+        // Normal: first review after starting interval
+        firstDueDate = addDays(today, startingInterval);
+      }
       
       const card = {
         deckId: deckId,
         content: newCardContent.value.trim(),
+        reminder: newCardReminder.value.trim() || null, // Optional reminder
         currentInterval: startingInterval,
-        createdAt: formatDate(getToday()),
+        createdAt: formatDate(today),
         createdAtReal: new Date().toISOString(), // Real timestamp for time travel discard
         lastReviewDate: null,
-        nextDueDate: formatDate(firstDueDate), // First review after starting interval
+        nextDueDate: formatDate(firstDueDate),
         retired: false,
         deleted: false,
         history: [],
@@ -440,6 +458,8 @@ createApp({
       
       // Close panel immediately for better UX
       newCardContent.value = '';
+      newCardReminder.value = '';
+      newCardScheduleDate.value = '';
       showAddCard.value = false;
       
       try {
@@ -1120,6 +1140,8 @@ createApp({
       
       // Form state
       newCardContent,
+      newCardReminder,
+      newCardScheduleDate,
       newCardDeckId,
       newDeckName,
       newDeckInterval,
@@ -1286,6 +1308,12 @@ createApp({
               ></textarea>
             </div>
             <div v-else class="card-content">{{ currentCard.content }}</div>
+            
+            <!-- Show reminder on first review -->
+            <div v-if="!isEditing && !currentCard.lastReviewDate && currentCard.reminder" class="card-reminder">
+              <div class="reminder-label">📝 Reminder:</div>
+              <div class="reminder-text">{{ currentCard.reminder }}</div>
+            </div>
           </div>
           
           <!-- Past Reflections (hidden by default to encourage fresh reflection) -->
@@ -1429,11 +1457,21 @@ createApp({
         </div>
         <div class="panel-body">
           <div class="form-group">
+            <label class="form-label">Content</label>
             <textarea 
               class="reflection-input" 
-              style="min-height: 200px;"
+              style="min-height: 150px;"
               placeholder="Enter card content..."
               v-model="newCardContent"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reminder (optional, shown on first review)</label>
+            <textarea 
+              class="form-input" 
+              style="min-height: 60px;"
+              placeholder="Why am I learning this? Context for first review..."
+              v-model="newCardReminder"
             ></textarea>
           </div>
           <div class="form-group">
@@ -1443,6 +1481,14 @@ createApp({
                 {{ deck.name }}
               </option>
             </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Schedule for (optional, blank = automatic)</label>
+            <input 
+              type="date" 
+              class="form-input"
+              v-model="newCardScheduleDate"
+            />
           </div>
         </div>
       </div>
@@ -1533,17 +1579,34 @@ createApp({
           <span class="panel-title">All Cards ({{ currentDeck?.name }})</span>
         </div>
         <div class="panel-body">
+          <!-- Scheduled Cards (future, never reviewed) -->
+          <div class="cards-section" v-if="deckStats.scheduled > 0">
+            <div class="cards-section-title">SCHEDULED ({{ deckStats.scheduled }})</div>
+            <div 
+              v-for="card in currentDeckCards.filter(c => !c.retired && !c.deleted && !c.lastReviewDate && c.nextDueDate > effectiveToday).sort((a,b) => a.nextDueDate.localeCompare(b.nextDueDate))"
+              :key="card.id"
+              class="card-list-item scheduled"
+              @click="showCardDetail = card; showAllCards = false"
+            >
+              <div class="card-list-content">{{ card.content }}</div>
+              <div class="card-list-due">Starts: {{ formatDueDate(card.nextDueDate) }}</div>
+            </div>
+          </div>
+          
           <!-- Active Cards -->
           <div class="cards-section">
-            <div class="cards-section-title">ACTIVE ({{ deckStats.active }})</div>
+            <div class="cards-section-title">ACTIVE ({{ deckStats.active - deckStats.scheduled }})</div>
             <div 
-              v-for="card in currentDeckCards.filter(c => !c.retired && !c.deleted)"
+              v-for="card in currentDeckCards.filter(c => !c.retired && !c.deleted && (c.lastReviewDate || c.nextDueDate <= effectiveToday))"
               :key="card.id"
               class="card-list-item"
               @click="showCardDetail = card; showAllCards = false"
             >
               <div class="card-list-content">{{ card.content }}</div>
               <div class="card-list-due">Due: {{ formatDueDate(card.nextDueDate) }}</div>
+            </div>
+            <div v-if="currentDeckCards.filter(c => !c.retired && !c.deleted && (c.lastReviewDate || c.nextDueDate <= effectiveToday)).length === 0" class="empty-section">
+              No active cards
             </div>
           </div>
           

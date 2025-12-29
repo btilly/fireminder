@@ -211,6 +211,27 @@ html, body {
   color: var(--text-primary);
 }
 
+.card-reminder {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--accent);
+}
+
+.card-reminder .reminder-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.card-reminder .reminder-text {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
 .card-attribution {
   margin-top: var(--space-lg);
   text-align: center;
@@ -1319,6 +1340,18 @@ html, body {
 
 .card-list-item.retired {
   opacity: 0.6;
+}
+
+.card-list-item.scheduled {
+  border-left: 3px solid var(--accent);
+  background: rgba(var(--accent-rgb, 99, 102, 241), 0.05);
+}
+
+.empty-section {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: var(--space-md);
+  text-align: center;
 }
 
 .card-list-content {

@@ -60,8 +60,8 @@ export async function createCard(page, content) {
   // Wait for panel to open
   await page.locator('.panel').waitFor({ state: 'visible' });
   
-  // Fill content
-  await page.locator('.panel-body textarea').fill(content);
+  // Fill content (use first textarea = content field)
+  await page.locator('.panel-body textarea.reflection-input').fill(content);
   
   // Save (use panel action button, same as createDeck)
   await page.locator('.panel-action').click();
