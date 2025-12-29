@@ -830,6 +830,139 @@ createApp({
         console.error('Error deleting deck:', error);
       }
     }
+    
+    function exportDeck() {
+      if (!currentDeck.value) return;
+      
+      const deck = currentDeck.value;
+      const deckCards = currentDeckCards.value.filter(c => !c.deleted);
+      
+      // Build markdown content
+      let md = `# ${deck.name}\n\n`;
+      md += `- **Starting interval:** ${deck.startingInterval} days\n`;
+      if (deck.queueLimit) {
+        md += `- **Max cards/day:** ${deck.queueLimit}\n`;
+      }
+      md += `\n---\n\n`;
+      md += `## Cards (${deckCards.length})\n\n`;
+      
+      deckCards.forEach((card, idx) => {
+        md += `### ${idx + 1}. ${card.retired ? '[RETIRED] ' : ''}${card.content.substring(0, 50)}${card.content.length > 50 ? '...' : ''}\n\n`;
+        md += `${card.content}\n\n`;
+        
+        if (card.history && card.history.length > 0) {
+          md += `**Review history:**\n`;
+          card.history.forEach(h => {
+            md += `- ${h.date}: ${h.interval} days`;
+            if (h.reflection) {
+              md += ` — "${h.reflection}"`;
+            }
+            md += `\n`;
+          });
+          md += `\n`;
+        }
+        
+        md += `---\n\n`;
+      });
+      
+      // Download file
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${deck.name.replace(/[^a-z0-9]/gi, '-')}-export.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    async function importCards(event) {
+      const file = event.target.files?.[0];
+      if (!file || !currentDeck.value || !user.value) return;
+      
+      const text = await file.text();
+      
+      // Simple import: each non-empty paragraph becomes a card
+      // Skip lines that look like headers (start with #) or metadata (start with -)
+      const lines = text.split('\n');
+      const cardContents = [];
+      let currentCard = '';
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        
+        // Skip markdown headers and metadata
+        if (trimmed.startsWith('#') || trimmed.startsWith('-') || trimmed === '---') {
+          if (currentCard.trim()) {
+            cardContents.push(currentCard.trim());
+            currentCard = '';
+          }
+          continue;
+        }
+        
+        // Skip review history lines
+        if (trimmed.match(/^\d{4}-\d{2}-\d{2}:/)) {
+          continue;
+        }
+        
+        if (trimmed === '') {
+          if (currentCard.trim()) {
+            cardContents.push(currentCard.trim());
+            currentCard = '';
+          }
+        } else {
+          currentCard += (currentCard ? ' ' : '') + trimmed;
+        }
+      }
+      
+      if (currentCard.trim()) {
+        cardContents.push(currentCard.trim());
+      }
+      
+      // Filter duplicates and existing cards
+      const existingContents = new Set(currentDeckCards.value.map(c => c.content.toLowerCase().trim()));
+      const newCards = cardContents.filter(c => !existingContents.has(c.toLowerCase().trim()));
+      
+      if (newCards.length === 0) {
+        alert('No new cards to import. All content already exists in this deck.');
+        event.target.value = '';
+        return;
+      }
+      
+      const confirmMsg = `Import ${newCards.length} card${newCards.length > 1 ? 's' : ''} into "${currentDeck.value.name}"?`;
+      if (!confirm(confirmMsg)) {
+        event.target.value = '';
+        return;
+      }
+      
+      const startingInterval = currentDeck.value.startingInterval || 2;
+      const today = getToday();
+      const firstDueDate = addDays(today, startingInterval);
+      
+      for (const content of newCards) {
+        const cardId = `card_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const card = {
+          deckId: currentDeck.value.id,
+          content: content,
+          currentInterval: startingInterval,
+          createdAt: formatDate(today),
+          createdAtReal: new Date().toISOString(),
+          lastReviewDate: null,
+          nextDueDate: formatDate(firstDueDate),
+          retired: false,
+          history: [],
+        };
+        
+        try {
+          await setDoc(doc(db, 'users', user.value.uid, 'cards', cardId), card);
+          cards.value.push({ id: cardId, ...card });
+        } catch (err) {
+          console.error('Failed to import card:', err);
+        }
+      }
+      
+      alert(`Imported ${newCards.length} card${newCards.length > 1 ? 's' : ''} successfully!`);
+      event.target.value = '';
+    }
 
     function openMoveToDeck() {
       moveToDeckTarget.value = null;
@@ -1027,6 +1160,8 @@ createApp({
       startEditingDetail,
       cancelDetailEdit,
       saveDetailEdit,
+      exportDeck,
+      importCards,
     };
   },
 
@@ -1529,6 +1664,17 @@ createApp({
               placeholder="No limit"
               min="1"
             />
+          </div>
+          
+          <div class="settings-section">
+            <div class="settings-section-title">Import / Export</div>
+            <div class="settings-import-export">
+              <button class="btn-secondary" @click="exportDeck">📤 Export Deck</button>
+              <label class="btn-secondary import-label">
+                📥 Import Cards
+                <input type="file" accept=".md,.txt" @change="importCards" hidden />
+              </label>
+            </div>
           </div>
           
           <div class="settings-danger">

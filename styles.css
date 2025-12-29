@@ -971,6 +971,38 @@ html, body {
   color: var(--text-secondary);
 }
 
+.settings-section {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+
+.settings-section-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+  font-weight: 500;
+}
+
+.settings-import-export {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.settings-import-export .btn-secondary {
+  flex: 1;
+  min-width: 120px;
+}
+
+.import-label {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .settings-danger {
   margin-top: var(--space-xl);
   padding-top: var(--space-lg);
