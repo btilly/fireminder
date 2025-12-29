@@ -70,19 +70,19 @@ test.describe('Queue Priority', () => {
     await expect(page.locator('.card-content')).toContainText('Should be due in 2 days');
   });
 
-  test('BUG: time travel to Dec 30 shows card created Dec 28', async ({ page }) => {
+  test('time travel forward shows card due after interval', async ({ page }) => {
     await page.goto('/');
     await waitForDemoLogin(page);
     
     // Create deck with 2-day interval
-    await createDeck(page, { name: uniqueName('Dec30Bug'), interval: 2 });
+    await createDeck(page, { name: uniqueName('TimeTravelDue'), interval: 2 });
     
-    // Create card (today is Dec 28)
-    await createCard(page, 'Dec 28 card');
+    // Create card (today)
+    await createCard(page, 'Card for time travel test');
     
-    // Time travel to exactly Dec 30, 2025
-    await timeTravel(page, '2025-12-30');
+    // Time travel forward by 2 days (matches interval)
+    await timeTravel(page, futureDate(2));
     
     // Should show the card
-    await expect(page.locator('.card-content')).toContainText('Dec 28 card');
+    await expect(page.locator('.card-content')).toContainText('Card for time travel test');
   });
