@@ -83,24 +83,43 @@ function getLongerInterval(current) {
 }
 
 // --- Date helpers ---
+// IMPORTANT: All dates are LOCAL dates (user's timezone). No UTC conversion.
+// We store dates as "YYYY-MM-DD" strings and compare them lexicographically.
 
-// Note: simulatedDateRef is created inside setup() for reactivity
+/**
+ * Parse a "YYYY-MM-DD" string as a LOCAL date (not UTC).
+ * new Date("2025-12-30") parses as midnight UTC which causes off-by-one bugs.
+ * This function creates midnight LOCAL time.
+ */
+function parseLocalDate(dateStr) {
+  if (dateStr instanceof Date) return dateStr;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day); // month is 0-indexed
+}
 
 function addDays(date, days) {
-  const result = new Date(date);
+  const d = date instanceof Date ? date : parseLocalDate(date);
+  const result = new Date(d);
   result.setDate(result.getDate() + days);
   return result;
 }
 
 function daysBetween(date1, date2) {
-  const d1 = new Date(date1);
-  const d2 = new Date(date2);
+  const d1 = parseLocalDate(date1);
+  const d2 = parseLocalDate(date2);
   const diffTime = d2 - d1;
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Format a date as "YYYY-MM-DD" using LOCAL time (not UTC).
+ */
 function formatDate(date) {
-  return new Date(date).toISOString().split('T')[0];
+  const d = date instanceof Date ? date : parseLocalDate(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 // --- Vue App ---
@@ -182,7 +201,7 @@ createApp({
     // Helper functions using reactive simulatedDateRef
     function getToday() {
       if (simulatedDateRef.value) {
-        return new Date(simulatedDateRef.value);
+        return parseLocalDate(simulatedDateRef.value);
       }
       return new Date();
     }
