@@ -456,7 +456,9 @@ createApp({
 
     // Unified card operations (work from review or detail view)
     async function retireCard(card = null) {
-      const targetCard = card || showCardDetail.value || currentCard.value;
+      // If called from @click without (), Vue passes MouseEvent - filter it out
+      const inputCard = (card && card.id) ? card : null;
+      const targetCard = inputCard || showCardDetail.value || currentCard.value;
       if (!targetCard || !user.value) return;
       
       try {
@@ -476,7 +478,9 @@ createApp({
     }
 
     async function deleteCard(card = null) {
-      const targetCard = card || showCardDetail.value || currentCard.value;
+      // If called from @click without (), Vue passes MouseEvent - filter it out
+      const inputCard = (card && card.id) ? card : null;
+      const targetCard = inputCard || showCardDetail.value || currentCard.value;
       if (!targetCard || !user.value) return;
       if (!confirm('Delete this card permanently?')) return;
       
