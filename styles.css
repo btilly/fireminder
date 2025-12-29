@@ -724,6 +724,40 @@ html, body {
   gap: var(--space-sm);
 }
 
+/* Sidebar Footer / Sign Out */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-user {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-signout {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-signout:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* Utilities */
 .hidden {
   display: none !important;

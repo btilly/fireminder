@@ -17,6 +17,7 @@ import {
   getAuth, 
   signInWithPopup, 
   signInAnonymously,
+  signOut as firebaseSignOut,
   GoogleAuthProvider, 
   onAuthStateChanged,
   connectAuthEmulator 
@@ -268,6 +269,19 @@ createApp({
         }
       } catch (error) {
         console.error('Sign in error:', error);
+      }
+    }
+    
+    async function signOut() {
+      try {
+        await firebaseSignOut(auth);
+        // Clear local state
+        decks.value = [];
+        cards.value = [];
+        currentDeckId.value = null;
+        showSidebar.value = false;
+      } catch (error) {
+        console.error('Sign out error:', error);
       }
     }
 
@@ -594,6 +608,7 @@ createApp({
       
       // Methods
       signIn,
+      signOut,
       createDeck,
       createCard,
       reviewCard,
@@ -680,6 +695,14 @@ createApp({
                 @click="setTheme(theme)"
               ></button>
             </div>
+          </div>
+          
+          <!-- Sign Out -->
+          <div class="sidebar-footer">
+            <div class="sidebar-user" v-if="user">
+              {{ user.displayName || user.email || 'Anonymous' }}
+            </div>
+            <button class="btn-signout" @click="signOut">Sign Out</button>
           </div>
         </div>
       </aside>
